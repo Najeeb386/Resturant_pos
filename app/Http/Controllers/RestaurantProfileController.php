@@ -1,0 +1,49 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Restaurant;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
+
+class RestaurantProfileController extends Controller
+{
+    public function edit()
+    {
+        $restaurant = auth()->user()->restaurant;
+        return Inertia::render('Settings/Profile', [
+            'restaurant' => $restaurant
+        ]);
+    }
+
+    public function update(Request $request)
+    {
+        $restaurant = auth()->user()->restaurant;
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'required|string',
+            'email' => 'nullable|email|max:255',
+            'gst_number' => 'nullable|string|max:50',
+            'logo' => 'nullable|image|max:2048', // 2MB max
+            'receipt_header' => 'nullable|string',
+            'receipt_footer' => 'nullable|string',
+        ]);
+
+        $data = $request->only('name', 'phone', 'address', 'email', 'gst_number', 'receipt_header', 'receipt_footer');
+
+        if ($request->hasFile('logo')) {
+            if ($restaurant->logo) {
+                Storage::disk('public')->delete($restaurant->logo);
+            }
+            $path = $request->file('logo')->store('logos', 'public');
+            $data['logo'] = $path;
+        }
+
+        $restaurant->update($data);
+
+        return redirect()->back()->with('message', 'Profile updated successfully.');
+    }
+}
