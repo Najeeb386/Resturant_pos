@@ -53,6 +53,11 @@ Route::middleware('auth')->group(function () {
                 ->join('subscription_plans', 'subscriptions.subscription_plan_id', '=', 'subscription_plans.id')
                 ->sum('subscription_plans.price');
 
+            $settings = \DB::table('platform_settings')->first() ?? (object) [
+                'currency' => 'USD',
+                'currency_symbol' => '$',
+            ];
+
             $expiringSubscriptions = Subscription::where('status', 'active')
                 ->whereBetween('ends_at', [now(), now()->addDays(30)])
                 ->count();
@@ -91,6 +96,7 @@ Route::middleware('auth')->group(function () {
                     'totalTenants' => $totalTenants,
                     'expiringSubscriptions' => $expiringSubscriptions,
                 ],
+                'currencySymbol' => $settings->currency_symbol,
                 'chartData' => $chartData,
                 'recentSignups' => $recentSignups,
             ]);

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../Components/ui/Ca
 import { DollarSign, Store, Activity, Clock, ArrowUpRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function Dashboard({ stats = { mrr: '0.00', activeRestaurants: 0, totalTenants: 0, expiringSubscriptions: 0 }, chartData = [], recentSignups = [] }) {
+export default function Dashboard({ stats = { mrr: '0.00', activeRestaurants: 0, totalTenants: 0, expiringSubscriptions: 0 }, currencySymbol = '$', chartData = [], recentSignups = [] }) {
     return (
         <SuperAdminLayout>
             <div className="space-y-6">
@@ -14,7 +14,7 @@ export default function Dashboard({ stats = { mrr: '0.00', activeRestaurants: 0,
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Monthly Recurring Revenue</p>
-                                <h3 className="text-3xl font-bold text-slate-900">${stats.mrr}</h3>
+                                <h3 className="text-3xl font-bold text-slate-900">{currencySymbol}{stats.mrr}</h3>
                                 <div className="flex items-center gap-1 text-emerald-600 text-sm mt-2 font-medium">
                                     <ArrowUpRight className="w-4 h-4" />
                                     <span>+12.5%</span>
