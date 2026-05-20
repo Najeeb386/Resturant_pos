@@ -3,7 +3,7 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Button } from '../../Components/ui/Button';
 import { useForm, usePage } from '@inertiajs/react';
-import { Save, Upload } from 'lucide-react';
+import { Save, Upload, Loader2 } from 'lucide-react';
 
 export default function Profile({ restaurant }) {
     const fileInputRef = useRef(null);
@@ -14,6 +14,9 @@ export default function Profile({ restaurant }) {
         address: restaurant.address || '',
         email: restaurant.email || '',
         gst_number: restaurant.gst_number || '',
+        currency: restaurant.currency || 'USD',
+        currency_symbol: restaurant.currency_symbol || '$',
+        tax_percentage: restaurant.tax_percentage || 10,
         receipt_header: restaurant.receipt_header || '',
         receipt_footer: restaurant.receipt_footer || '',
         logo: null,
@@ -146,6 +149,46 @@ export default function Profile({ restaurant }) {
                                 </div>
                             </div>
 
+                            {/* Financial Settings */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <h3 className="font-semibold text-gray-900 mb-4">Financial Settings</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency Code</label>
+                                        <input
+                                            type="text"
+                                            value={data.currency}
+                                            onChange={e => setData('currency', e.target.value)}
+                                            placeholder="e.g. USD, EUR, INR"
+                                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                        />
+                                        {errors.currency && <p className="text-red-500 text-xs mt-1">{errors.currency}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency Symbol</label>
+                                        <input
+                                            type="text"
+                                            value={data.currency_symbol}
+                                            onChange={e => setData('currency_symbol', e.target.value)}
+                                            placeholder="e.g. $, €, ₹"
+                                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                        />
+                                        {errors.currency_symbol && <p className="text-red-500 text-xs mt-1">{errors.currency_symbol}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tax Percentage (%)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={data.tax_percentage}
+                                            onChange={e => setData('tax_percentage', e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                        />
+                                        {errors.tax_percentage && <p className="text-red-500 text-xs mt-1">{errors.tax_percentage}</p>}
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Receipt Settings */}
                             <div className="pt-6 border-t border-gray-100">
                                 <h3 className="font-semibold text-gray-900 mb-4">Receipt Settings</h3>
@@ -177,7 +220,8 @@ export default function Profile({ restaurant }) {
 
                             <div className="pt-6 border-t border-gray-100 flex justify-end">
                                 <Button type="submit" disabled={processing} className="flex items-center gap-2">
-                                    <Save className="w-4 h-4" /> Save Changes
+                                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
+                                    {processing ? 'Saving...' : 'Save Changes'}
                                 </Button>
                             </div>
                         </form>

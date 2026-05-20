@@ -17,6 +17,8 @@ class PosController extends Controller
     {
         $restaurantId = auth()->user()->restaurant_id;
         
+        $restaurant = auth()->user()->restaurant;
+        
         $categories = MenuCategory::where('restaurant_id', $restaurantId)->get();
         $menuItems = MenuItem::where('restaurant_id', $restaurantId)->get();
         $tables = Table::where('restaurant_id', $restaurantId)->get();
@@ -25,6 +27,7 @@ class PosController extends Controller
             'categories' => $categories,
             'menuItems' => $menuItems,
             'tables' => $tables,
+            'restaurant' => $restaurant,
         ]);
     }
 
@@ -51,7 +54,7 @@ class PosController extends Controller
                 'table_id' => $request->table_id,
                 'user_id' => auth()->id(),
                 'order_type' => $request->table_id ? 'dine_in' : 'takeaway',
-                'status' => 'completed',
+                'status' => 'pending',
                 'subtotal' => $request->subtotal,
                 'tax' => $request->tax,
                 'discount' => 0,
@@ -66,6 +69,14 @@ class PosController extends Controller
                     'quantity' => $item['qty'],
                     'price' => $item['price'],
                 ]);
+
+                // Decrease stock quantity
+                $menuItem = MenuItem::find($item['id']);
+                if ($menuItem && $menuItem->stock_quantity > 0) {
+                    // Prevent negative stock
+                    $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
+                    $menuItem->decrement('stock_quantity', $decrementAmount);
+                }
             }
 
             if ($request->table_id) {

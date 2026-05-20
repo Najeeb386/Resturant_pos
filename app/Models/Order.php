@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    use \App\Traits\BelongsToRestaurant;
+
     protected $fillable = [
         'restaurant_id', 'table_id', 'user_id', 'order_type', 'status',
         'subtotal', 'tax', 'discount', 'total', 'notes'

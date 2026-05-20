@@ -15,14 +15,7 @@ const data = [
   { name: 'Sun', sales: 3490 },
 ];
 
-const recentOrders = [
-    { id: '#ORD-001', table: 'Table 4', amount: '$45.00', status: 'ready', time: '5 mins ago' },
-    { id: '#ORD-002', table: 'Takeaway', amount: '$22.50', status: 'preparing', time: '12 mins ago' },
-    { id: '#ORD-003', table: 'Table 2', amount: '$18.00', status: 'served', time: '25 mins ago' },
-    { id: '#ORD-004', table: 'Delivery', amount: '$35.00', status: 'pending', time: '30 mins ago' },
-];
-
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, stats, recentOrders, currency = '$' }) {
     return (
         <AdminLayout>
             <div className="space-y-6">
@@ -31,11 +24,11 @@ export default function Dashboard({ user }) {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-500 mb-1">Total Revenue</p>
-                                <h3 className="text-3xl font-bold text-gray-900">$12,426</h3>
+                                <p className="text-sm font-medium text-gray-500 mb-1">Today's Revenue</p>
+                                <h3 className="text-3xl font-bold text-gray-900">{currency}{Number(stats?.revenue || 0).toFixed(2)}</h3>
                                 <div className="flex items-center gap-1 text-green-600 text-sm mt-2 font-medium">
                                     <ArrowUpRight className="w-4 h-4" />
-                                    <span>+14.5%</span>
+                                    <span>Today</span>
                                     <span className="text-gray-400 ml-1 font-normal">vs last week</span>
                                 </div>
                             </div>
@@ -48,11 +41,11 @@ export default function Dashboard({ user }) {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-500 mb-1">Total Orders</p>
-                                <h3 className="text-3xl font-bold text-gray-900">384</h3>
+                                <p className="text-sm font-medium text-gray-500 mb-1">Today's Orders</p>
+                                <h3 className="text-3xl font-bold text-gray-900">{stats?.orders || 0}</h3>
                                 <div className="flex items-center gap-1 text-green-600 text-sm mt-2 font-medium">
                                     <ArrowUpRight className="w-4 h-4" />
-                                    <span>+5.2%</span>
+                                    <span>Today</span>
                                     <span className="text-gray-400 ml-1 font-normal">vs last week</span>
                                 </div>
                             </div>
@@ -65,11 +58,11 @@ export default function Dashboard({ user }) {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-500 mb-1">Total Expenses</p>
-                                <h3 className="text-3xl font-bold text-gray-900">$3,210</h3>
-                                <div className="flex items-center gap-1 text-red-500 text-sm mt-2 font-medium">
-                                    <ArrowDownRight className="w-4 h-4" />
-                                    <span>-2.1%</span>
+                                <p className="text-sm font-medium text-gray-500 mb-1">Active Orders</p>
+                                <h3 className="text-3xl font-bold text-gray-900">{stats?.active || 0}</h3>
+                                <div className="flex items-center gap-1 text-orange-500 text-sm mt-2 font-medium">
+                                    <ArrowUpRight className="w-4 h-4" />
+                                    <span>In Kitchen</span>
                                     <span className="text-gray-400 ml-1 font-normal">vs last week</span>
                                 </div>
                             </div>
@@ -82,11 +75,11 @@ export default function Dashboard({ user }) {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-500 mb-1">Net Profit</p>
-                                <h3 className="text-3xl font-bold text-gray-900">$9,216</h3>
-                                <div className="flex items-center gap-1 text-green-600 text-sm mt-2 font-medium">
-                                    <ArrowUpRight className="w-4 h-4" />
-                                    <span>+18.3%</span>
+                                <p className="text-sm font-medium text-gray-500 mb-1">Low Stock Items</p>
+                                <h3 className="text-3xl font-bold text-gray-900">{stats?.lowStock || 0}</h3>
+                                <div className="flex items-center gap-1 text-red-600 text-sm mt-2 font-medium">
+                                    <ArrowDownRight className="w-4 h-4" />
+                                    <span>Needs Restock</span>
                                     <span className="text-gray-400 ml-1 font-normal">vs last week</span>
                                 </div>
                             </div>
@@ -132,15 +125,15 @@ export default function Dashboard({ user }) {
                                     <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-semibold text-gray-900">{order.id}</span>
+                                                <span className="font-semibold text-gray-900">#{order.id}</span>
                                                 <span className="text-sm text-gray-500">• {order.table}</span>
                                             </div>
-                                            <div className="text-sm font-medium text-gray-600">{order.amount}</div>
+                                            <div className="text-sm font-medium text-gray-600">{currency}{Number(order.total).toFixed(2)}</div>
                                         </div>
                                         <div className="text-right">
                                             <Badge 
                                                 variant={
-                                                    order.status === 'ready' ? 'success' : 
+                                                    order.status === 'completed' ? 'success' : 
                                                     order.status === 'preparing' ? 'warning' : 
                                                     order.status === 'pending' ? 'danger' : 'default'
                                                 }

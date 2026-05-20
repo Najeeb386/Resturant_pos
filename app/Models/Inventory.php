@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Inventory extends Model
 {
+    use \App\Traits\BelongsToRestaurant;
+
     protected $fillable = ['restaurant_id', 'name', 'unit', 'quantity', 'min_quantity', 'expiry_date'];
 
     protected $casts = [

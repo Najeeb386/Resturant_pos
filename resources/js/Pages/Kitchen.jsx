@@ -1,53 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import AdminLayout from '../Layouts/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../Components/ui/Card';
+import { Card, CardContent } from '../Components/ui/Card';
 import { Badge } from '../Components/ui/Badge';
 import { Button } from '../Components/ui/Button';
-import { Clock, CheckCircle2, PlayCircle } from 'lucide-react';
+import { Check, Clock, Utensils, Loader2 } from 'lucide-react';
+import { useForm, router } from '@inertiajs/react';
 
-const initialOrders = [
-    { 
-        id: '#ORD-001', 
-        table: 'Table 4', 
-        type: 'Dine-In',
-        time: '12:30 PM',
-        status: 'pending',
-        items: [
-            { name: 'Classic Beef Burger', qty: 2, notes: 'No onions' },
-            { name: 'Iced Coffee', qty: 2 },
-        ]
-    },
-    { 
-        id: '#ORD-002', 
-        table: 'Takeaway', 
-        type: 'Takeaway',
-        time: '12:35 PM',
-        status: 'preparing',
-        items: [
-            { name: 'Pepperoni Pizza', qty: 1 },
-            { name: 'Coca Cola', qty: 1 },
-        ]
-    },
-    { 
-        id: '#ORD-003', 
-        table: 'Delivery', 
-        type: 'Delivery',
-        time: '12:40 PM',
-        status: 'pending',
-        items: [
-            { name: 'Family Combo', qty: 1 },
-            { name: 'Chocolate Sundae', qty: 2 },
-        ]
-    },
-];
+export default function Kitchen({ orders = [] }) {
+    
+    // Automatically refresh orders every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['orders'] });
+        }, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
-export default function Kitchen() {
-    const [orders, setOrders] = useState(initialOrders);
+    const { post } = useForm();
+    const [updatingId, setUpdatingId] = React.useState(null);
 
     const updateStatus = (id, newStatus) => {
-        setOrders(orders.map(order => 
-            order.id === id ? { ...order, status: newStatus } : order
-        ));
+        setUpdatingId(id);
+        post(`/kitchen/${id}/status`, {
+            data: { status: newStatus },
+            preserveScroll: true,
+            onFinish: () => setUpdatingId(null)
+        });
     };
 
     return (
@@ -55,106 +33,87 @@ export default function Kitchen() {
             <div className="mb-6 flex justify-between items-end">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Kitchen Display System</h1>
-                    <p className="text-gray-500">Live incoming orders and preparation queue.</p>
+                    <p className="text-gray-500">Manage active orders and track preparation times.</p>
+                </div>
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span className="text-sm font-medium text-gray-600">Pending ({orders.filter(o => o.status === 'pending').length})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <span className="text-sm font-medium text-gray-600">Preparing ({orders.filter(o => o.status === 'preparing').length})</span>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)]">
-                {/* Column: Pending */}
-                <div className="flex-shrink-0 w-80 bg-gray-50 rounded-2xl p-4 flex flex-col border border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-gray-700 flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-red-500" />
-                            Pending
-                        </h2>
-                        <span className="bg-red-100 text-red-600 px-2.5 py-0.5 rounded-full text-sm font-bold">
-                            {orders.filter(o => o.status === 'pending').length}
-                        </span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-4">
-                        {orders.filter(o => o.status === 'pending').map(order => (
-                            <OrderCard key={order.id} order={order} onAction={() => updateStatus(order.id, 'preparing')} actionText="Start Preparing" actionIcon={PlayCircle} color="red" />
-                        ))}
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {orders.map(order => (
+                    <Card key={order.id} className={`border-t-4 shadow-sm hover:shadow-md transition-shadow ${
+                        order.status === 'pending' ? 'border-t-red-500' : 'border-t-orange-500'
+                    }`}>
+                        <CardContent className="p-5">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-bold text-lg text-gray-900">#{order.id}</h3>
+                                    <p className="text-gray-500 font-medium">{order.table}</p>
+                                </div>
+                                <div className="text-right">
+                                    <Badge variant={order.status === 'pending' ? 'danger' : 'warning'} className="mb-1">
+                                        {order.status.toUpperCase()}
+                                    </Badge>
+                                    <div className="flex items-center text-gray-500 text-sm gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {order.time}
+                                    </div>
+                                </div>
+                            </div>
 
-                {/* Column: Preparing */}
-                <div className="flex-shrink-0 w-80 bg-gray-50 rounded-2xl p-4 flex flex-col border border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-gray-700 flex items-center gap-2">
-                            <PlayCircle className="w-5 h-5 text-yellow-500" />
-                            Preparing
-                        </h2>
-                        <span className="bg-yellow-100 text-yellow-700 px-2.5 py-0.5 rounded-full text-sm font-bold">
-                            {orders.filter(o => o.status === 'preparing').length}
-                        </span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-4">
-                        {orders.filter(o => o.status === 'preparing').map(order => (
-                            <OrderCard key={order.id} order={order} onAction={() => updateStatus(order.id, 'ready')} actionText="Mark Ready" actionIcon={CheckCircle2} color="yellow" />
-                        ))}
-                    </div>
-                </div>
+                            <div className="space-y-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                {order.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-start">
+                                        <div className="flex gap-3">
+                                            <span className="font-bold text-gray-900">{item.qty}x</span>
+                                            <span className="text-gray-700 font-medium">{item.name}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
 
-                {/* Column: Ready */}
-                <div className="flex-shrink-0 w-80 bg-gray-50 rounded-2xl p-4 flex flex-col border border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-gray-700 flex items-center gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
-                            Ready
-                        </h2>
-                        <span className="bg-green-100 text-green-600 px-2.5 py-0.5 rounded-full text-sm font-bold">
-                            {orders.filter(o => o.status === 'ready').length}
-                        </span>
+                            <div className="flex gap-3 mt-auto">
+                                {order.status === 'pending' && (
+                                    <Button 
+                                        className="w-full flex justify-center items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                                        onClick={() => updateStatus(order.id, 'preparing')}
+                                        disabled={updatingId === order.id}
+                                    >
+                                        {updatingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Utensils className="w-4 h-4" />}
+                                        Start Preparing
+                                    </Button>
+                                )}
+                                {order.status === 'preparing' && (
+                                    <Button 
+                                        className="w-full flex justify-center items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+                                        onClick={() => updateStatus(order.id, 'completed')}
+                                        disabled={updatingId === order.id}
+                                    >
+                                        {updatingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                        Mark Ready
+                                    </Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+
+                {orders.length === 0 && (
+                    <div className="col-span-full py-24 flex flex-col items-center justify-center text-gray-400">
+                        <Utensils className="w-16 h-16 mb-4 text-gray-200" />
+                        <h2 className="text-xl font-bold text-gray-500">No active orders</h2>
+                        <p>The kitchen is clear. Waiting for new orders...</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-4">
-                        {orders.filter(o => o.status === 'ready').map(order => (
-                            <OrderCard key={order.id} order={order} onAction={() => updateStatus(order.id, 'served')} actionText="Mark Served" actionIcon={CheckCircle2} color="green" />
-                        ))}
-                    </div>
-                </div>
+                )}
             </div>
         </AdminLayout>
-    );
-}
-
-function OrderCard({ order, onAction, actionText, actionIcon: Icon, color }) {
-    const colorClasses = {
-        red: 'border-red-200 border-t-4 border-t-red-500',
-        yellow: 'border-yellow-200 border-t-4 border-t-yellow-500',
-        green: 'border-green-200 border-t-4 border-t-green-500',
-    };
-
-    return (
-        <Card className={`shadow-sm ${colorClasses[color]}`}>
-            <CardHeader className="p-4 pb-2 border-b-0">
-                <div className="flex justify-between items-start w-full">
-                    <div>
-                        <CardTitle className="text-lg">{order.id}</CardTitle>
-                        <p className="text-sm text-gray-500 font-medium">{order.table} • {order.type}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xs font-bold text-gray-400 mb-1">{order.time}</p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-2">
-                <ul className="space-y-3 mb-4">
-                    {order.items.map((item, idx) => (
-                        <li key={idx} className="text-sm text-gray-800 flex justify-between items-start border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                            <div>
-                                <span className="font-bold mr-2 text-primary">{item.qty}x</span>
-                                <span className="font-medium">{item.name}</span>
-                                {item.notes && <p className="text-xs text-red-500 mt-0.5 ml-6 italic">Note: {item.notes}</p>}
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-                <Button className="w-full text-sm py-2" variant={color === 'red' ? 'primary' : color === 'yellow' ? 'secondary' : 'outline'} onClick={onAction}>
-                    <Icon className="w-4 h-4 mr-2" />
-                    {actionText}
-                </Button>
-            </CardContent>
-        </Card>
     );
 }

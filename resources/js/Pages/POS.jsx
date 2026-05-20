@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../Layouts/AdminLayout';
 import { Card, CardContent } from '../Components/ui/Card';
 import { Button } from '../Components/ui/Button';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X, Loader2 } from 'lucide-react';
 import { useForm, router } from '@inertiajs/react';
 
-export default function POS({ categories = [], menuItems = [], tables = [], flash = {} }) {
+export default function POS({ categories = [], menuItems = [], tables = [], restaurant = {}, flash = {} }) {
     const [activeCategory, setActiveCategory] = useState('All');
     const [cart, setCart] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -51,8 +51,10 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
     };
 
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const tax = subtotal * 0.1; // 10% tax
+    const taxRate = restaurant.tax_percentage ? parseFloat(restaurant.tax_percentage) / 100 : 0.10;
+    const tax = subtotal * taxRate;
     const total = subtotal + tax;
+    const currency = restaurant.currency_symbol || '$';
 
     useEffect(() => {
         setData({
@@ -140,7 +142,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                     <div className="text-5xl mb-3">🍽️</div>
                                 )}
                                 <h3 className="font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem]">{item.name}</h3>
-                                <p className="text-primary font-bold mt-2">${Number(item.price).toFixed(2)}</p>
+                                <p className="text-primary font-bold mt-2">{currency}{Number(item.price).toFixed(2)}</p>
                             </button>
                         ))}
                         {filteredMenu.length === 0 && (
@@ -187,7 +189,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                 <div key={item.id} className="flex items-center justify-between gap-4">
                                     <div className="flex-1">
                                         <h4 className="font-semibold text-gray-800 text-sm">{item.name}</h4>
-                                        <p className="text-primary font-bold text-sm">${(item.price * item.qty).toFixed(2)}</p>
+                                        <p className="text-primary font-bold text-sm">{currency}{(item.price * item.qty).toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-gray-100">
                                         <button onClick={() => updateQty(item.id, -1)} className="p-1 hover:bg-white rounded-lg text-gray-500 transition-colors">
@@ -208,15 +210,15 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-gray-500 text-sm">
                                 <span>Subtotal</span>
-                                <span>${subtotal.toFixed(2)}</span>
+                                <span>{currency}{subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-gray-500 text-sm">
-                                <span>Tax (10%)</span>
-                                <span>${tax.toFixed(2)}</span>
+                                <span>Tax ({restaurant.tax_percentage || 10}%)</span>
+                                <span>{currency}{tax.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between font-bold text-xl pt-2 border-t border-gray-200 text-gray-900">
                                 <span>Total</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>{currency}{total.toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -227,7 +229,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                 onClick={() => handleCheckout('Cash')}
                                 disabled={cart.length === 0 || processing}
                             >
-                                <Banknote className="w-5 h-5" />
+                                {processing && data.payment_method === 'Cash' ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <Banknote className="w-5 h-5" />
+                                )}
                                 <span className="text-xs">Cash</span>
                             </Button>
                             <Button 
@@ -236,7 +242,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                 onClick={() => handleCheckout('Card')}
                                 disabled={cart.length === 0 || processing}
                             >
-                                <CreditCard className="w-5 h-5" />
+                                {processing && data.payment_method === 'Card' ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <CreditCard className="w-5 h-5" />
+                                )}
                                 <span className="text-xs">Card</span>
                             </Button>
                             <Button 
@@ -245,7 +255,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                 onClick={() => handleCheckout('QR Pay')}
                                 disabled={cart.length === 0 || processing}
                             >
-                                <QrCode className="w-5 h-5" />
+                                {processing && data.payment_method === 'QR Pay' ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <QrCode className="w-5 h-5" />
+                                )}
                                 <span className="text-xs">QR Pay</span>
                             </Button>
                         </div>
@@ -268,7 +282,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                                 {lastOrder.items.map(item => (
                                     <div key={item.id} className="flex justify-between text-sm">
                                         <span>{item.qty}x {item.name}</span>
-                                        <span>${(item.price * item.qty).toFixed(2)}</span>
+                                        <span>{currency}{(item.price * item.qty).toFixed(2)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -276,15 +290,15 @@ export default function POS({ categories = [], menuItems = [], tables = [], flas
                             <div className="border-t border-dashed border-gray-300 pt-4 space-y-2 mb-6">
                                 <div className="flex justify-between text-sm text-gray-600">
                                     <span>Subtotal</span>
-                                    <span>${lastOrder.subtotal.toFixed(2)}</span>
+                                    <span>{currency}{lastOrder.subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm text-gray-600">
                                     <span>Tax</span>
-                                    <span>${lastOrder.tax.toFixed(2)}</span>
+                                    <span>{currency}{lastOrder.tax.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-lg pt-2">
                                     <span>Total</span>
-                                    <span>${lastOrder.total.toFixed(2)}</span>
+                                    <span>{currency}{lastOrder.total.toFixed(2)}</span>
                                 </div>
                             </div>
 

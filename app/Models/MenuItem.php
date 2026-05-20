@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class MenuItem extends Model
 {
-    protected $fillable = ['restaurant_id', 'category_id', 'name', 'description', 'price', 'image', 'available'];
+    use \App\Traits\BelongsToRestaurant;
+
+    protected $fillable = ['restaurant_id', 'category_id', 'name', 'description', 'price', 'stock_quantity', 'image', 'available'];
 
     protected $casts = [
         'available' => 'boolean',

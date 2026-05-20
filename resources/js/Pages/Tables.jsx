@@ -3,14 +3,14 @@ import AdminLayout from '../Layouts/AdminLayout';
 import { Card, CardContent } from '../Components/ui/Card';
 import { Badge } from '../Components/ui/Badge';
 import { Button } from '../Components/ui/Button';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import { useForm } from '@inertiajs/react';
 
 export default function Tables({ tables = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
-    const { data, setData, post, put, delete: destroy, reset, errors, clearErrors } = useForm({
+    const { data, setData, post, put, delete: destroy, reset, errors, clearErrors, processing } = useForm({
         table_number: '',
         capacity: 4,
         status: 'available'
@@ -184,10 +184,11 @@ export default function Tables({ tables = [] }) {
                             </div>
 
                             <div className="pt-4 flex gap-3">
-                                <Button type="button" variant="outline" className="flex-1" onClick={closeModal}>
+                                <Button type="button" variant="outline" className="flex-1" onClick={closeModal} disabled={processing}>
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="flex-1">
+                                <Button type="submit" className="flex-1 flex items-center justify-center gap-2" disabled={processing}>
+                                    {processing && <Loader2 className="w-4 h-4 animate-spin" />}
                                     {editingId ? 'Update Table' : 'Save Table'}
                                 </Button>
                             </div>

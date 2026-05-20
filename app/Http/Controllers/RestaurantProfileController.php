@@ -27,18 +27,21 @@ class RestaurantProfileController extends Controller
             'address' => 'required|string',
             'email' => 'nullable|email|max:255',
             'gst_number' => 'nullable|string|max:50',
+            'currency' => 'nullable|string|max:3',
+            'currency_symbol' => 'nullable|string|max:10',
+            'tax_percentage' => 'nullable|numeric|min:0|max:100',
             'logo' => 'nullable|image|max:2048', // 2MB max
             'receipt_header' => 'nullable|string',
             'receipt_footer' => 'nullable|string',
         ]);
 
-        $data = $request->only('name', 'phone', 'address', 'email', 'gst_number', 'receipt_header', 'receipt_footer');
+        $data = $request->only('name', 'phone', 'address', 'email', 'gst_number', 'currency', 'currency_symbol', 'tax_percentage', 'receipt_header', 'receipt_footer');
 
         if ($request->hasFile('logo')) {
             if ($restaurant->logo) {
                 Storage::disk('public')->delete($restaurant->logo);
             }
-            $path = $request->file('logo')->store('logos', 'public');
+            $path = $request->file('logo')->store("restaurants/{$restaurant->id}/logo", 'public');
             $data['logo'] = $path;
         }
 

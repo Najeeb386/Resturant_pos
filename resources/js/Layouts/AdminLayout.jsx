@@ -7,7 +7,8 @@ import {
     ChefHat, 
     LogOut,
     Menu as MenuIcon,
-    Settings
+    Settings,
+    Users
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -22,6 +23,10 @@ export default function AdminLayout({ children }) {
         { name: 'Menu', href: '/menu', icon: MenuIcon },
         { name: 'Settings', href: '/settings/profile', icon: Settings },
     ];
+
+    if (user.role_id === 2) {
+        navigation.splice(5, 0, { name: 'Staff', href: '/staff', icon: Users });
+    }
 
     return (
         <div className="min-h-screen bg-background flex">
