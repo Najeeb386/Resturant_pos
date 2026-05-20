@@ -1,29 +1,20 @@
 import React from 'react';
 import SuperAdminLayout from '../../Layouts/SuperAdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../Components/ui/Card';
-import { DollarSign, Store, Activity, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { DollarSign, Store, Activity, Clock, ArrowUpRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const data = [
-  { name: 'Jan', revenue: 4000 },
-  { name: 'Feb', revenue: 5000 },
-  { name: 'Mar', revenue: 8000 },
-  { name: 'Apr', revenue: 11000 },
-  { name: 'May', revenue: 14000 },
-  { name: 'Jun', revenue: 18000 },
-];
-
-export default function Dashboard() {
+export default function Dashboard({ stats = { mrr: '0.00', activeRestaurants: 0, totalTenants: 0, expiringSubscriptions: 0 }, chartData = [], recentSignups = [] }) {
     return (
         <SuperAdminLayout>
             <div className="space-y-6">
                 {/* Stats Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Monthly Recurring Revenue</p>
-                                <h3 className="text-3xl font-bold text-slate-900">$18,400</h3>
+                                <h3 className="text-3xl font-bold text-slate-900">${stats.mrr}</h3>
                                 <div className="flex items-center gap-1 text-emerald-600 text-sm mt-2 font-medium">
                                     <ArrowUpRight className="w-4 h-4" />
                                     <span>+12.5%</span>
@@ -39,8 +30,8 @@ export default function Dashboard() {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Active Tenants</p>
-                                <h3 className="text-3xl font-bold text-slate-900">142</h3>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Active Restaurants</p>
+                                <h3 className="text-3xl font-bold text-slate-900">{stats.activeRestaurants}</h3>
                                 <div className="flex items-center gap-1 text-emerald-600 text-sm mt-2 font-medium">
                                     <ArrowUpRight className="w-4 h-4" />
                                     <span>+8 this month</span>
@@ -55,15 +46,28 @@ export default function Dashboard() {
                     <Card>
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Platform Uptime</p>
-                                <h3 className="text-3xl font-bold text-slate-900">99.99%</h3>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Total Tenants</p>
+                                <h3 className="text-3xl font-bold text-slate-900">{stats.totalTenants}</h3>
                                 <div className="flex items-center gap-1 text-emerald-600 text-sm mt-2 font-medium">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    <span>All systems operational</span>
+                                    <ArrowUpRight className="w-4 h-4" />
+                                    <span>+5 this month</span>
                                 </div>
                             </div>
                             <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
                                 <Activity className="w-7 h-7" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Subscriptions Expiring Soon</p>
+                                <h3 className="text-3xl font-bold text-slate-900">{stats.expiringSubscriptions}</h3>
+                                <div className="text-sm mt-2 text-slate-500">Active plans ending within 30 days</div>
+                            </div>
+                            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
+                                <Clock className="w-7 h-7" />
                             </div>
                         </CardContent>
                     </Card>
@@ -76,9 +80,9 @@ export default function Dashboard() {
                             <CardTitle>MRR Growth (YTD)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={data}>
+                            <div className="h-[300px] w-full min-h-[300px]" style={{ minHeight: 300 }}>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} dy={10} />
                                         <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b'}} dx={-10} />
@@ -100,11 +104,7 @@ export default function Dashboard() {
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="divide-y divide-slate-100">
-                                {[
-                                    { name: 'Burger King Franchise', plan: 'Premium Plan', status: 'Pending Verification', time: '2 hours ago' },
-                                    { name: 'Joe\'s Coffee Shop', plan: 'Basic Plan', status: 'Approved', time: '5 hours ago' },
-                                    { name: 'Pizza Hut Express', plan: 'Standard Plan', status: 'Payment Pending', time: '1 day ago' }
-                                ].map((req, idx) => (
+                                {recentSignups.length > 0 ? recentSignups.map((req, idx) => (
                                     <div key={idx} className="p-4 hover:bg-slate-50 transition-colors">
                                         <div className="flex justify-between items-start mb-1">
                                             <h4 className="font-semibold text-slate-800">{req.name}</h4>
@@ -119,7 +119,9 @@ export default function Dashboard() {
                                             {req.status}
                                         </span>
                                     </div>
-                                ))}
+                                )) : (
+                                    <div className="p-4 text-center text-slate-500">No recent signups.</div>
+                                )}
                             </div>
                             <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
                                 <button className="w-full text-center text-blue-600 font-medium text-sm hover:underline">

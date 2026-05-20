@@ -5,7 +5,7 @@ import {
     Store, 
     CreditCard,
     LogOut,
-    Users
+    Settings
 } from 'lucide-react';
 
 export default function SuperAdminLayout({ children }) {
@@ -16,7 +16,7 @@ export default function SuperAdminLayout({ children }) {
         { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
         { name: 'Tenants (Restaurants)', href: '/admin/restaurants', icon: Store },
         { name: 'Subscription Plans', href: '/admin/plans', icon: CreditCard },
-        { name: 'Admins', href: '#', icon: Users },
+        { name: 'Settings', href: '/admin/settings', icon: Settings },
     ];
 
     return (

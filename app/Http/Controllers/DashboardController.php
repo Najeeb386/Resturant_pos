@@ -12,7 +12,7 @@ class DashboardController extends Controller
     public function index()
     {
         if (auth()->user()->role_id === 1) {
-            return redirect('/super-admin/dashboard');
+            return redirect('/admin/dashboard');
         }
 
         $restaurantId = auth()->user()->restaurant_id;
