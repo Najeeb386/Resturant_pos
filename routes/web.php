@@ -23,6 +23,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/pos', [\App\Http\Controllers\PosController::class, 'index']);
     Route::post('/pos/checkout', [\App\Http\Controllers\PosController::class, 'checkout']);
+    Route::post('/pos/draft', [\App\Http\Controllers\PosController::class, 'saveDraft']);
 
     Route::resource('tables', \App\Http\Controllers\TableController::class)->except(['create', 'show', 'edit']);
     

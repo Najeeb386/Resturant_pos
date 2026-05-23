@@ -9,7 +9,7 @@ class Order extends Model
     use \App\Traits\BelongsToRestaurant;
 
     protected $fillable = [
-        'restaurant_id', 'table_id', 'user_id', 'order_type', 'status',
+        'restaurant_id', 'table_id', 'user_id', 'order_type', 'customer_name', 'status',
         'subtotal', 'tax', 'discount', 'total', 'notes'
     ];
 

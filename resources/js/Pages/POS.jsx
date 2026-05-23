@@ -10,11 +10,15 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [cart, setCart] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTable, setSelectedTable] = useState('');
+    const [orderType, setOrderType] = useState('takeaway'); // takeaway | dine_in | delivery
+    const [customerName, setCustomerName] = useState('');
     const [showReceipt, setShowReceipt] = useState(false);
     const [lastOrder, setLastOrder] = useState(null);
 
     const { data, setData, post, processing, reset } = useForm({
         table_id: '',
+        order_type: 'takeaway',
+        customer_name: '',
         cart: [],
         subtotal: 0,
         tax: 0,
@@ -63,9 +67,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
             subtotal: subtotal,
             tax: tax,
             total: total,
-            table_id: selectedTable || null
+            table_id: selectedTable || null,
+            order_type: orderType,
+            customer_name: customerName
         });
-    }, [cart, subtotal, tax, total, selectedTable]);
+    }, [cart, subtotal, tax, total, selectedTable, orderType, customerName]);
 
     const handleCheckout = (method) => {
         setData('payment_method', method);
@@ -78,13 +84,29 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     tax,
                     total,
                     method,
-                    table: tables.find(t => t.id == selectedTable)?.table_number || 'Takeaway',
+                    table: tables.find(t => t.id == selectedTable)?.table_number || (orderType === 'delivery' ? 'Delivery' : 'Takeaway'),
+                    customer: customerName || 'Walk-in',
                     order_id: page.props.flash.order_id,
                     date: new Date().toLocaleString()
                 });
                 setCart([]);
                 setSelectedTable('');
+                setCustomerName('');
+                setOrderType('takeaway');
                 setShowReceipt(true);
+            }
+        });
+    };
+
+    const handleSaveDraft = () => {
+        post('/pos/draft', {
+            onSuccess: () => {
+                // Clear cart after saving draft
+                setCart([]);
+                setSelectedTable('');
+                setCustomerName('');
+                setOrderType('takeaway');
+                // Optionally show a toast, but for now just clear
             }
         });
     };
@@ -155,8 +177,8 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
                 {/* Right Side: Cart */}
                 <div className="w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden flex-shrink-0">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50">
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-3">
+                        <div className="flex items-center justify-between">
                             <h2 className="font-bold text-lg flex items-center gap-2">
                                 <ShoppingCart className="w-5 h-5 text-primary" />
                                 Current Order
@@ -165,16 +187,58 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 {cart.length} items
                             </span>
                         </div>
-                        <select
-                            value={selectedTable}
-                            onChange={(e) => setSelectedTable(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-sm"
-                        >
-                            <option value="">Takeaway / Select Table</option>
-                            {tables.filter(t => t.status !== 'occupied').map(t => (
-                                <option key={t.id} value={t.id}>Table {t.table_number}</option>
-                            ))}
-                        </select>
+
+                        {/* Customer Name - Optional */}
+                        <div>
+                            <label className="text-xs font-medium text-gray-600 block mb-1">Customer Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Walk-in Customer"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                        </div>
+
+                        {/* Order Type */}
+                        <div>
+                            <label className="text-xs font-medium text-gray-600 block mb-1">Order Type</label>
+                            <select
+                                value={orderType}
+                                onChange={(e) => {
+                                    const newType = e.target.value;
+                                    setOrderType(newType);
+                                    if (newType !== 'dine_in') {
+                                        setSelectedTable('');
+                                    }
+                                }}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                            >
+                                <option value="takeaway">Takeaway</option>
+                                <option value="dine_in">Dine In</option>
+                                <option value="delivery">Delivery</option>
+                            </select>
+                        </div>
+
+                        {/* Table Selection - Only for Dine In */}
+                        {orderType === 'dine_in' && (
+                            <div>
+                                <label className="text-xs font-medium text-gray-600 block mb-1">Select Table</label>
+                                <select
+                                    value={selectedTable}
+                                    onChange={(e) => setSelectedTable(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                    required
+                                >
+                                    <option value="">Select a table...</option>
+                                    {tables.map(t => (
+                                        <option key={t.id} value={t.id}>
+                                            Table {t.table_number} {t.status === 'occupied' ? '(Occupied)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* Cart Items */}
@@ -222,7 +286,18 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 mb-3">
+                        {/* Save as Draft Button - for open bills (especially Dine In) */}
+                        <Button
+                            className="w-full mb-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3"
+                            onClick={handleSaveDraft}
+                            disabled={cart.length === 0 || processing}
+                        >
+                            Save as Draft (Open Bill)
+                        </Button>
+
+                        <div className="text-center text-xs text-gray-500 mb-2 font-medium">Pay & Complete Order</div>
+
+                        <div className="grid grid-cols-3 gap-2">
                             <Button 
                                 variant="outline" 
                                 className="flex flex-col gap-1 items-center h-auto py-3 hover:bg-primary/5 hover:border-primary"
@@ -247,6 +322,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 ) : (
                                     <CreditCard className="w-5 h-5" />
                                 )}
+
                                 <span className="text-xs">Card</span>
                             </Button>
                             <Button 
@@ -275,7 +351,10 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             <div className="text-center mb-6 border-b border-dashed border-gray-300 pb-6">
                                 <h2 className="text-2xl font-bold mb-1">RESTAURANT RECEIPT</h2>
                                 <p className="text-gray-500 text-sm">{lastOrder.date}</p>
-                                <p className="text-gray-500 text-sm">Order #{lastOrder.order_id} | Table: {lastOrder.table}</p>
+                                <p className="text-gray-500 text-sm">
+                                    Order #{lastOrder.order_id} | {lastOrder.table}
+                                    {lastOrder.customer && ` | ${lastOrder.customer}`}
+                                </p>
                             </div>
                             
                             <div className="space-y-3 mb-6">
