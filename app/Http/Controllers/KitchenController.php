@@ -12,7 +12,7 @@ class KitchenController extends Controller
     {
         $restaurantId = auth()->user()->restaurant_id;
 
-        $orders = Order::with(['items.menuItem', 'table'])
+        $orders = Order::with(['orderItems.menuItem', 'table'])
             ->where('restaurant_id', $restaurantId)
             ->whereIn('status', ['pending', 'preparing'])
             ->orderBy('created_at', 'asc')
@@ -23,7 +23,7 @@ class KitchenController extends Controller
                     'table' => $order->table ? 'Table ' . $order->table->table_number : 'Takeaway',
                     'status' => $order->status,
                     'time' => $order->created_at->format('H:i'),
-                    'items' => $order->items->map(function ($item) {
+                    'items' => $order->orderItems->map(function ($item) {
                         return [
                             'id' => $item->id,
                             'name' => $item->menuItem ? $item->menuItem->name : 'Unknown Item',

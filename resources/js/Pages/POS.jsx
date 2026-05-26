@@ -5,7 +5,7 @@ import { Button } from '../Components/ui/Button';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X, Loader2 } from 'lucide-react';
 import { useForm, router } from '@inertiajs/react';
 
-export default function POS({ categories = [], menuItems = [], tables = [], restaurant = {}, flash = {} }) {
+export default function POS({ categories = [], menuItems = [], tables = [], restaurant = {}, openBills = {}, flash = {}, allDrafts = [] }) {
     const [activeCategory, setActiveCategory] = useState('All');
     const [cart, setCart] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -14,8 +14,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [customerName, setCustomerName] = useState('');
     const [showReceipt, setShowReceipt] = useState(false);
     const [lastOrder, setLastOrder] = useState(null);
+    const [currentOrderId, setCurrentOrderId] = useState(null);
+    const [showDraftsModal, setShowDraftsModal] = useState(false);
 
     const { data, setData, post, processing, reset } = useForm({
+        order_id: null,
         table_id: '',
         order_type: 'takeaway',
         customer_name: '',
@@ -60,22 +63,22 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const total = subtotal + tax;
     const currency = restaurant.currency_symbol || '$';
 
+    // Sync cart to form data
     useEffect(() => {
-        setData({
-            ...data,
+        setData(currentData => ({
+            ...currentData,
             cart: cart,
             subtotal: subtotal,
             tax: tax,
             total: total,
             table_id: selectedTable || null,
             order_type: orderType,
-            customer_name: customerName
-        });
-    }, [cart, subtotal, tax, total, selectedTable, orderType, customerName]);
+            customer_name: customerName,
+            order_id: currentOrderId
+        }));
+    }, [cart, subtotal, tax, total, selectedTable, orderType, customerName, currentOrderId]);
 
-    const handleCheckout = (method) => {
-        setData('payment_method', method);
-        
+    const handleCheckout = () => {
         post('/pos/checkout', {
             onSuccess: (page) => {
                 setLastOrder({
@@ -83,7 +86,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     subtotal,
                     tax,
                     total,
-                    method,
+                    method: data.payment_method,
                     table: tables.find(t => t.id == selectedTable)?.table_number || (orderType === 'delivery' ? 'Delivery' : 'Takeaway'),
                     customer: customerName || 'Walk-in',
                     order_id: page.props.flash.order_id,
@@ -93,7 +96,12 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setSelectedTable('');
                 setCustomerName('');
                 setOrderType('takeaway');
+                setCurrentOrderId(null);
                 setShowReceipt(true);
+            },
+            onError: (errors) => {
+                console.error("Checkout Validation Errors:", errors);
+                alert("Validation failed! Check console.");
             }
         });
     };
@@ -106,9 +114,52 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setSelectedTable('');
                 setCustomerName('');
                 setOrderType('takeaway');
+                setCurrentOrderId(null);
                 // Optionally show a toast, but for now just clear
+            },
+            onError: (errors) => {
+                console.error("Draft Validation Errors:", errors);
+                alert("Validation failed! Check console.");
             }
         });
+    };
+
+    // Load an existing open draft bill into the cart (so user can add more items)
+    const loadOpenBill = (tableId) => {
+        const bill = openBills[tableId];
+        if (!bill) return;
+
+        setSelectedTable(tableId);
+        setCustomerName(bill.customer_name || '');
+        setCurrentOrderId(bill.order_id);
+
+        // Convert saved items to cart format
+        const loadedCart = bill.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+        }));
+
+        setCart(loadedCart);
+    };
+
+    // Load a draft from the all drafts modal
+    const loadDraft = (draft) => {
+        setSelectedTable(draft.table_id || '');
+        setOrderType(draft.order_type || 'takeaway');
+        setCustomerName(draft.customer_name || '');
+        setCurrentOrderId(draft.id);
+
+        const loadedCart = draft.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+        }));
+
+        setCart(loadedCart);
+        setShowDraftsModal(false);
     };
 
     const handlePrint = () => {
@@ -183,9 +234,18 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 <ShoppingCart className="w-5 h-5 text-primary" />
                                 Current Order
                             </h2>
-                            <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold">
-                                {cart.length} items
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setShowDraftsModal(true)}
+                                    className="bg-amber-100 text-amber-700 hover:bg-amber-200 text-xs px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 shadow-sm"
+                                >
+                                    Drafts
+                                    <span className="bg-amber-200 text-amber-800 rounded px-1 text-[10px]">{allDrafts?.length || 0}</span>
+                                </button>
+                                <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold">
+                                    {cart.length} items
+                                </span>
+                            </div>
                         </div>
 
                         {/* Customer Name - Optional */}
@@ -220,23 +280,78 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             </select>
                         </div>
 
-                        {/* Table Selection - Only for Dine In */}
+                        {/* Table Selection + Open Bills - Only for Dine In */}
                         {orderType === 'dine_in' && (
-                            <div>
-                                <label className="text-xs font-medium text-gray-600 block mb-1">Select Table</label>
-                                <select
-                                    value={selectedTable}
-                                    onChange={(e) => setSelectedTable(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                                    required
-                                >
-                                    <option value="">Select a table...</option>
-                                    {tables.map(t => (
-                                        <option key={t.id} value={t.id}>
-                                            Table {t.table_number} {t.status === 'occupied' ? '(Occupied)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="space-y-3">
+                                {/* Quick select */}
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600 block mb-1">Select Table</label>
+                                    <select
+                                        value={selectedTable}
+                                        onChange={(e) => setSelectedTable(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                    >
+                                        <option value="">Select a table...</option>
+                                        {tables.map(t => (
+                                            <option key={t.id} value={t.id}>
+                                                Table {t.table_number} {t.status === 'occupied' ? '(Occupied)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Open Bills Grid - See and continue existing table bills */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="text-xs font-medium text-gray-600">Open Bills (Click to Load)</label>
+                                        <span className="text-[10px] text-emerald-600 font-medium">Tables with running orders</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {tables.map(table => {
+                                            const bill = openBills[table.id];
+                                            const isOpen = !!bill;
+                                            const isSelected = selectedTable == table.id;
+
+                                            return (
+                                                <button
+                                                    key={table.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isOpen) {
+                                                            loadOpenBill(table.id);
+                                                        } else {
+                                                            setSelectedTable(table.id);
+                                                        }
+                                                    }}
+                                                    className={`p-2 rounded-xl border text-left text-xs transition-all ${
+                                                        isSelected 
+                                                            ? 'border-primary bg-primary/5 ring-1 ring-primary/30' 
+                                                            : isOpen 
+                                                                ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' 
+                                                                : 'border-gray-200 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <div className="font-semibold text-gray-800">Table {table.table_number}</div>
+                                                    <div className="text-[10px] text-gray-500 mt-0.5">
+                                                        {table.status === 'occupied' ? 'Occupied' : 'Free'}
+                                                    </div>
+
+                                                    {isOpen ? (
+                                                        <div className="mt-1">
+                                                            <div className="text-emerald-600 font-bold text-sm">
+                                                                {currency}{bill.total.toFixed(2)}
+                                                            </div>
+                                                            <div className="text-[10px] text-emerald-700 font-medium">Open Bill • Tap to load</div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-[10px] text-gray-400 mt-1">No open bill</div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -287,58 +402,49 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                         </div>
 
                         {/* Save as Draft Button - for open bills (especially Dine In) */}
-                        <Button
-                            className="w-full mb-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3"
+                        <button
+                            type="button"
+                            className="w-full mb-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all text-sm"
                             onClick={handleSaveDraft}
                             disabled={cart.length === 0 || processing}
                         >
                             Save as Draft (Open Bill)
-                        </Button>
+                        </button>
 
-                        <div className="text-center text-xs text-gray-500 mb-2 font-medium">Pay & Complete Order</div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                            <Button 
-                                variant="outline" 
-                                className="flex flex-col gap-1 items-center h-auto py-3 hover:bg-primary/5 hover:border-primary"
-                                onClick={() => handleCheckout('Cash')}
-                                disabled={cart.length === 0 || processing}
-                            >
-                                {processing && data.payment_method === 'Cash' ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    <Banknote className="w-5 h-5" />
-                                )}
-                                <span className="text-xs">Cash</span>
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="flex flex-col gap-1 items-center h-auto py-3 hover:bg-primary/5 hover:border-primary"
-                                onClick={() => handleCheckout('Card')}
-                                disabled={cart.length === 0 || processing}
-                            >
-                                {processing && data.payment_method === 'Card' ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    <CreditCard className="w-5 h-5" />
-                                )}
-
-                                <span className="text-xs">Card</span>
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="flex flex-col gap-1 items-center h-auto py-3 hover:bg-primary/5 hover:border-primary"
-                                onClick={() => handleCheckout('QR Pay')}
-                                disabled={cart.length === 0 || processing}
-                            >
-                                {processing && data.payment_method === 'QR Pay' ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    <QrCode className="w-5 h-5" />
-                                )}
-                                <span className="text-xs">QR Pay</span>
-                            </Button>
+                        <div className="flex gap-1 mb-4 bg-gray-100 p-1.5 rounded-xl">
+                            {['Cash', 'Card', 'QR Pay'].map(method => (
+                                <button
+                                    key={method}
+                                    type="button"
+                                    onClick={() => setData('payment_method', method)}
+                                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                        data.payment_method === method 
+                                        ? 'bg-white text-gray-800 shadow-sm' 
+                                        : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                                >
+                                    {method === 'Cash' && <Banknote className="w-4 h-4" />}
+                                    {method === 'Card' && <CreditCard className="w-4 h-4" />}
+                                    {method === 'QR Pay' && <QrCode className="w-4 h-4" />}
+                                    {method}
+                                </button>
+                            ))}
                         </div>
+
+                        <Button 
+                            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 text-base rounded-xl transition-all flex justify-between items-center px-5 shadow-md shadow-primary/20"
+                            onClick={handleCheckout}
+                            disabled={cart.length === 0 || processing}
+                        >
+                            <span>Pay Now</span>
+                            <span>
+                                {processing ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    `${currency}${total.toFixed(2)}`
+                                )}
+                            </span>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -393,6 +499,66 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                     <X className="w-4 h-4" /> Close
                                 </Button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Open Drafts Modal */}
+            {showDraftsModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h2 className="text-xl font-bold text-gray-800">Open Draft Bills</h2>
+                            <button onClick={() => setShowDraftsModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+                            {allDrafts?.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    <div className="text-6xl mb-4">📝</div>
+                                    <p>No open draft bills found.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {allDrafts?.map(draft => (
+                                        <div key={draft.id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <span className="inline-block px-2 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md uppercase tracking-wider mb-2">
+                                                        {draft.order_type.replace('_', ' ')}
+                                                    </span>
+                                                    <h3 className="font-bold text-gray-900">
+                                                        {draft.table_number ? `Table ${draft.table_number}` : (draft.customer_name || 'Walk-in')}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500 mt-1">{draft.created_at}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-black text-lg text-emerald-600">{currency}{draft.total.toFixed(2)}</div>
+                                                    <div className="text-[10px] text-gray-400">ID: #{draft.id}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex-1 bg-gray-50 rounded-xl p-3 mb-4 space-y-1.5 overflow-y-auto max-h-32">
+                                                {draft.items.map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between text-xs text-gray-600">
+                                                        <span className="truncate pr-2">{item.qty}x {item.name}</span>
+                                                        <span className="font-medium whitespace-nowrap">{currency}{(item.price * item.qty).toFixed(2)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            <Button 
+                                                className="w-full bg-primary hover:bg-primary/90 text-white" 
+                                                onClick={() => loadDraft(draft)}
+                                            >
+                                                Load & Complete Order
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -23,17 +23,71 @@ class PosController extends Controller
         $menuItems = MenuItem::where('restaurant_id', $restaurantId)->get();
         $tables = Table::where('restaurant_id', $restaurantId)->get();
 
+        // Open draft bills per table (for "continue order" feature)
+        $openBills = Order::where('restaurant_id', $restaurantId)
+            ->where('status', 'draft')
+            ->whereNotNull('table_id')
+            ->with('orderItems.menuItem')
+            ->latest()
+            ->get()
+            ->groupBy('table_id')
+            ->map(function ($orders) {
+                $order = $orders->first();
+                return [
+                    'order_id' => $order->id,
+                    'customer_name' => $order->customer_name,
+                    'items' => $order->orderItems->map(fn($item) => [
+                        'id' => $item->menu_item_id,
+                        'name' => $item->menuItem?->name ?? 'Item',
+                        'price' => (float) $item->price,
+                        'qty' => $item->quantity,
+                    ])->toArray(),
+                    'subtotal' => (float) $order->subtotal,
+                    'tax' => (float) $order->tax,
+                    'total' => (float) $order->total,
+                ];
+            });
+
+        // Add all drafts for the new modal
+        $allDrafts = Order::where('restaurant_id', $restaurantId)
+            ->where('status', 'draft')
+            ->with(['orderItems.menuItem', 'table'])
+            ->latest()
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'table_id' => $order->table_id,
+                    'table_number' => $order->table ? $order->table->table_number : null,
+                    'order_type' => $order->order_type,
+                    'customer_name' => $order->customer_name,
+                    'items' => $order->orderItems->map(fn($item) => [
+                        'id' => $item->menu_item_id,
+                        'name' => $item->menuItem?->name ?? 'Item',
+                        'price' => (float) $item->price,
+                        'qty' => $item->quantity,
+                    ])->toArray(),
+                    'subtotal' => (float) $order->subtotal,
+                    'tax' => (float) $order->tax,
+                    'total' => (float) $order->total,
+                    'created_at' => $order->created_at->format('Y-m-d h:i A'),
+                ];
+            });
+
         return Inertia::render('POS', [
             'categories' => $categories,
             'menuItems' => $menuItems,
             'tables' => $tables,
             'restaurant' => $restaurant,
+            'openBills' => $openBills,
+            'allDrafts' => $allDrafts,
         ]);
     }
 
     public function checkout(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'order_id' => 'nullable|exists:orders,id',
             'table_id' => 'nullable|exists:tables,id',
             'order_type' => 'required|in:takeaway,dine_in,delivery',
             'customer_name' => 'nullable|string|max:255',
@@ -47,23 +101,55 @@ class PosController extends Controller
             'payment_method' => 'required|string',
         ]);
 
+        if ($validator->fails()) {
+            \Log::error('Checkout Validation Failed: ' . json_encode($validator->errors()));
+            return redirect()->back()->withErrors($validator->errors());
+        }
+
         DB::beginTransaction();
         try {
             $restaurantId = auth()->user()->restaurant_id;
 
-            $order = Order::create([
-                'restaurant_id' => $restaurantId,
-                'table_id' => $request->table_id,
-                'user_id' => auth()->id(),
-                'order_type' => $request->order_type ?? ($request->table_id ? 'dine_in' : 'takeaway'),
-                'customer_name' => $request->customer_name,
-                'status' => 'pending',
-                'subtotal' => $request->subtotal,
-                'tax' => $request->tax,
-                'discount' => 0,
-                'total' => $request->total,
-                'notes' => 'Payment via ' . $request->payment_method,
-            ]);
+            $order = null;
+            if ($request->order_id) {
+                $order = Order::where('restaurant_id', $restaurantId)->with('orderItems')->find($request->order_id);
+            }
+
+            if ($order) {
+                // Restore stock for existing items before deleting them
+                foreach ($order->orderItems as $existingItem) {
+                    $menuItem = MenuItem::find($existingItem->menu_item_id);
+                    if ($menuItem) {
+                        $menuItem->increment('stock_quantity', $existingItem->quantity);
+                    }
+                }
+                OrderItem::where('order_id', $order->id)->delete();
+
+                $order->update([
+                    'table_id' => $request->table_id,
+                    'order_type' => $request->order_type ?? ($request->table_id ? 'dine_in' : 'takeaway'),
+                    'customer_name' => $request->customer_name,
+                    'status' => 'pending',
+                    'subtotal' => $request->subtotal,
+                    'tax' => $request->tax,
+                    'total' => $request->total,
+                    'notes' => 'Payment via ' . $request->payment_method,
+                ]);
+            } else {
+                $order = Order::create([
+                    'restaurant_id' => $restaurantId,
+                    'table_id' => $request->table_id,
+                    'user_id' => auth()->id(),
+                    'order_type' => $request->order_type ?? ($request->table_id ? 'dine_in' : 'takeaway'),
+                    'customer_name' => $request->customer_name,
+                    'status' => 'pending',
+                    'subtotal' => $request->subtotal,
+                    'tax' => $request->tax,
+                    'discount' => 0,
+                    'total' => $request->total,
+                    'notes' => 'Payment via ' . $request->payment_method,
+                ]);
+            }
 
             foreach ($request->cart as $item) {
                 OrderItem::create([
@@ -82,14 +168,10 @@ class PosController extends Controller
                 }
             }
 
-            // Update table status based on order type
+            // After final payment, free the table (or mark for cleaning)
             if ($request->table_id) {
                 $table = Table::find($request->table_id);
-                if ($request->order_type === 'dine_in') {
-                    $table->update(['status' => 'occupied']);
-                } else {
-                    $table->update(['status' => 'cleaning']);
-                }
+                $table->update(['status' => 'available']);   // Table is now free
             }
 
             DB::commit();
@@ -100,6 +182,8 @@ class PosController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Checkout Error: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
             return redirect()->back()->withErrors(['error' => 'Failed to process checkout.']);
         }
     }
@@ -110,7 +194,8 @@ class PosController extends Controller
      */
     public function saveDraft(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'order_id' => 'nullable|exists:orders,id',
             'table_id' => 'nullable|exists:tables,id',
             'order_type' => 'required|in:takeaway,dine_in,delivery',
             'customer_name' => 'nullable|string|max:255',
@@ -123,13 +208,19 @@ class PosController extends Controller
             'total' => 'required|numeric',
         ]);
 
+        if ($validator->fails()) {
+            \Log::error('Draft Validation Failed: ' . json_encode($validator->errors()));
+            return redirect()->back()->withErrors($validator->errors());
+        }
+
         DB::beginTransaction();
         try {
             $restaurantId = auth()->user()->restaurant_id;
 
-            // For Dine In, try to find existing open draft order on the same table
             $existingOrder = null;
-            if ($request->order_type === 'dine_in' && $request->table_id) {
+            if ($request->order_id) {
+                $existingOrder = Order::where('restaurant_id', $restaurantId)->with('orderItems')->find($request->order_id);
+            } elseif ($request->order_type === 'dine_in' && $request->table_id) {
                 $existingOrder = Order::where('restaurant_id', $restaurantId)
                     ->where('table_id', $request->table_id)
                     ->whereIn('status', ['draft', 'pending'])
@@ -138,37 +229,24 @@ class PosController extends Controller
             }
 
             if ($existingOrder) {
-                // Append items to existing open order
-                foreach ($request->cart as $item) {
-                    // Check if item already exists in order
-                    $existingItem = OrderItem::where('order_id', $existingOrder->id)
-                        ->where('menu_item_id', $item['id'])
-                        ->first();
-
-                    if ($existingItem) {
-                        $existingItem->increment('quantity', $item['qty']);
-                    } else {
-                        OrderItem::create([
-                            'order_id' => $existingOrder->id,
-                            'menu_item_id' => $item['id'],
-                            'quantity' => $item['qty'],
-                            'price' => $item['price'],
-                        ]);
-                    }
-
-                    // Deduct stock
-                    $menuItem = MenuItem::find($item['id']);
-                    if ($menuItem && $menuItem->stock_quantity > 0) {
-                        $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
-                        $menuItem->decrement('stock_quantity', $decrementAmount);
+                // Restore stock for existing items before deleting them
+                foreach ($existingOrder->orderItems as $existingItem) {
+                    $menuItem = MenuItem::find($existingItem->menu_item_id);
+                    if ($menuItem) {
+                        $menuItem->increment('stock_quantity', $existingItem->quantity);
                     }
                 }
+                OrderItem::where('order_id', $existingOrder->id)->delete();
 
                 // Update totals on existing order
-                $existingOrder->subtotal += $request->subtotal;
-                $existingOrder->tax += $request->tax;
-                $existingOrder->total += $request->total;
-                $existingOrder->save();
+                $existingOrder->update([
+                    'table_id' => $request->table_id,
+                    'order_type' => $request->order_type,
+                    'customer_name' => $request->customer_name,
+                    'subtotal' => $request->subtotal,
+                    'tax' => $request->tax,
+                    'total' => $request->total,
+                ]);
 
                 $order = $existingOrder;
             } else {
@@ -186,21 +264,21 @@ class PosController extends Controller
                     'total' => $request->total,
                     'notes' => 'Draft Order - Open Bill',
                 ]);
+            }
 
-                foreach ($request->cart as $item) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'menu_item_id' => $item['id'],
-                        'quantity' => $item['qty'],
-                        'price' => $item['price'],
-                    ]);
+            foreach ($request->cart as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'menu_item_id' => $item['id'],
+                    'quantity' => $item['qty'],
+                    'price' => $item['price'],
+                ]);
 
-                    // Deduct stock
-                    $menuItem = MenuItem::find($item['id']);
-                    if ($menuItem && $menuItem->stock_quantity > 0) {
-                        $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
-                        $menuItem->decrement('stock_quantity', $decrementAmount);
-                    }
+                // Deduct stock
+                $menuItem = MenuItem::find($item['id']);
+                if ($menuItem && $menuItem->stock_quantity > 0) {
+                    $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
+                    $menuItem->decrement('stock_quantity', $decrementAmount);
                 }
             }
 
@@ -215,6 +293,8 @@ class PosController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Draft Error: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
             return redirect()->back()->withErrors(['error' => 'Failed to save draft order.']);
         }
     }

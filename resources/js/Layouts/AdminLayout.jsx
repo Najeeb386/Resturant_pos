@@ -1,31 +1,21 @@
 import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { 
-    LayoutDashboard, 
-    MonitorSmartphone, 
-    Grid2X2, 
-    ChefHat, 
-    LogOut,
-    Menu as MenuIcon,
-    Settings,
-    Users
-} from 'lucide-react';
 
 export default function AdminLayout({ children }) {
     const { auth } = usePage().props;
     const user = auth?.user || { name: 'Admin' };
 
     const navigation = [
-        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        { name: 'POS Billing', href: '/pos', icon: MonitorSmartphone },
-        { name: 'Tables', href: '/tables', icon: Grid2X2 },
-        { name: 'Kitchen', href: '/kitchen', icon: ChefHat },
-        { name: 'Menu', href: '/menu', icon: MenuIcon },
-        { name: 'Settings', href: '/settings/profile', icon: Settings },
+        { name: 'Dashboard', href: '/dashboard' },
+        { name: 'POS Billing', href: '/pos' },
+        { name: 'Tables', href: '/tables' },
+        { name: 'Kitchen', href: '/kitchen' },
+        { name: 'Menu', href: '/menu' },
+        { name: 'Settings', href: '/settings/profile' },
     ];
 
     if (user.role_id === 2) {
-        navigation.splice(5, 0, { name: 'Staff', href: '/staff', icon: Users });
+        navigation.splice(5, 0, { name: 'Staff', href: '/staff' });
     }
 
     return (
@@ -51,7 +41,6 @@ export default function AdminLayout({ children }) {
                                     : 'text-gray-500 hover:bg-orange-50 hover:text-primary'
                                 }`}
                             >
-                                <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : ''}`} />
                                 <span className="font-medium">{item.name}</span>
                             </Link>
                         );
@@ -64,7 +53,6 @@ export default function AdminLayout({ children }) {
                         as="button"
                         className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors duration-200"
                     >
-                        <LogOut className="w-5 h-5" />
                         <span className="font-medium">Logout</span>
                     </Link>
                 </div>
