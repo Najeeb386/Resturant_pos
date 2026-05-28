@@ -81,6 +81,10 @@ class PosController extends Controller
             'restaurant' => $restaurant,
             'openBills' => $openBills,
             'allDrafts' => $allDrafts,
+            'flash' => [
+                'message' => session('message'),
+                'order_id' => session('order_id')
+            ],
         ]);
     }
 

@@ -9,7 +9,7 @@ import { Dialog } from '@headlessui/react';
 export default function Plans({ plans }) {
     const [isOpen, setIsOpen] = useState(false);
     
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         name: '',
         price: '',
         billing_cycle: 'monthly',
@@ -19,11 +19,14 @@ export default function Plans({ plans }) {
     const submit = (e) => {
         e.preventDefault();
         
-        // Convert comma separated features to array
-        const payload = { ...data, features: data.features.split(',').map(f => f.trim()).filter(Boolean) };
+        transform((data) => ({
+            ...data,
+            features: typeof data.features === 'string' 
+                ? data.features.split(',').map(f => f.trim()).filter(Boolean) 
+                : data.features,
+        }));
         
         post('/admin/plans', {
-            data: payload,
             onSuccess: () => {
                 setIsOpen(false);
                 reset();
@@ -110,6 +113,7 @@ export default function Plans({ plans }) {
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Features (comma separated)</label>
                                 <textarea value={data.features} onChange={e => setData('features', e.target.value)} className="w-full border-slate-200 rounded-lg shadow-sm" rows="3" placeholder="e.g. 5 Users, Standard Support, Analytics"></textarea>
+                                {errors.features && <span className="text-red-500 text-xs">{errors.features}</span>}
                             </div>
 
                             <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
