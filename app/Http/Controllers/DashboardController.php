@@ -15,6 +15,17 @@ class DashboardController extends Controller
             return redirect('/admin/dashboard');
         }
 
+        // Smart redirects for staff members who don't have dashboard access
+        if (auth()->user()->role_id === 4) { // Waiter
+            return redirect('/pos');
+        }
+        if (auth()->user()->role_id === 5) { // Kitchen
+            return redirect('/kitchen');
+        }
+        if (auth()->user()->role_id === 6) { // Delivery
+            return redirect('/orders');
+        }
+
         $restaurantId = auth()->user()->restaurant_id;
         $restaurant = auth()->user()->restaurant;
 

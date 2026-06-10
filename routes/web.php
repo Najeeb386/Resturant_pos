@@ -5,11 +5,22 @@ use Inertia\Inertia;
 use App\Models\Restaurant;
 use App\Models\Subscription;
 
+use App\Models\SubscriptionPlan;
+
 Route::get('/', function () {
-    if (auth()->check() && auth()->user()->role_id === 1) {
-        return redirect('/admin/dashboard');
+    if (auth()->check()) {
+        return auth()->user()->role_id === 1 ? redirect('/admin/dashboard') : redirect('/dashboard');
     }
-    return redirect('/dashboard');
+    
+    $plans = SubscriptionPlan::all();
+    $settings = \DB::table('platform_settings')->first() ?? (object) [
+        'currency_symbol' => '$',
+    ];
+
+    return Inertia::render('Landing', [
+        'plans' => $plans,
+        'currencySymbol' => $settings->currency_symbol,
+    ]);
 });
 
 Route::get('/login', function () {
@@ -17,6 +28,59 @@ Route::get('/login', function () {
 })->middleware('guest')->name('login');
 
 Route::post('/login', [App\Http\Controllers\API\AuthController::class, 'login'])->middleware('guest');
+
+Route::get('/register', function () {
+    return Inertia::render('Register', [
+        'plans' => SubscriptionPlan::all(),
+        'currencySymbol' => \DB::table('platform_settings')->first()?->currency_symbol ?? '$',
+    ]);
+})->middleware('guest')->name('register');
+
+Route::post('/register', function (\Illuminate\Http\Request $request) {
+    $request->validate([
+        'restaurant_name' => 'required|string|max:255',
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users',
+        'password' => 'required|min:8',
+        'plan_id' => 'required|exists:subscription_plans,id',
+    ]);
+
+    // Create Restaurant
+    $restaurant = \App\Models\Restaurant::create([
+        'name' => $request->restaurant_name,
+        'currency' => 'USD',
+        'currency_symbol' => '$',
+        'tax_percentage' => 0,
+    ]);
+
+    // Create User (Role 2 = Restaurant Admin)
+    $user = \App\Models\User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => \Hash::make($request->password),
+        'role_id' => 2,
+        'restaurant_id' => $restaurant->id,
+    ]);
+
+    // Create Trial Subscription
+    \App\Models\Subscription::create([
+        'restaurant_id' => $restaurant->id,
+        'subscription_plan_id' => $request->plan_id,
+        'starts_at' => now(),
+        'ends_at' => now()->addDays(14), // 14-day free trial
+        'status' => 'active',
+    ]);
+
+    auth()->login($user);
+
+    return redirect('/dashboard');
+})->middleware('guest');
+
+Route::get('/admin/login', function () {
+    return Inertia::render('SuperAdmin/Login');
+})->middleware('guest')->name('admin.login');
+
+Route::post('/admin/login', [App\Http\Controllers\API\AuthController::class, 'adminLogin'])->middleware('guest');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
@@ -35,6 +99,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/kitchen', [\App\Http\Controllers\KitchenController::class, 'index'])->name('kitchen.index');
     Route::post('/kitchen/{order}/status', [\App\Http\Controllers\KitchenController::class, 'updateStatus'])->name('kitchen.updateStatus');
 
+    Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::post('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.updatePaymentStatus');
+    Route::post('/orders/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.updateStatus');
+
     // Menu Management
     Route::get('/menu', [\App\Http\Controllers\MenuController::class, 'index'])->name('menu.index');
     Route::post('/menu/category', [\App\Http\Controllers\MenuController::class, 'storeCategory'])->name('menu.category.store');
@@ -42,6 +110,22 @@ Route::middleware('auth')->group(function () {
     Route::post('/menu/item', [\App\Http\Controllers\MenuController::class, 'storeItem'])->name('menu.item.store');
     Route::post('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'updateItem'])->name('menu.item.update');
     Route::delete('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'destroyItem'])->name('menu.item.destroy');
+
+    // Expenses
+    Route::get('/expenses', [\App\Http\Controllers\ExpenseController::class, 'index']);
+    Route::post('/expenses', [\App\Http\Controllers\ExpenseController::class, 'store']);
+    Route::put('/expenses/{expense}', [\App\Http\Controllers\ExpenseController::class, 'update']);
+    Route::delete('/expenses/{expense}', [\App\Http\Controllers\ExpenseController::class, 'destroy']);
+
+    // Reports
+    Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
+
+    // Inventory & Procurement
+    Route::get('/inventory', [\App\Http\Controllers\InventoryController::class, 'index']);
+    Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store']);
+    Route::put('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'update']);
+    Route::delete('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'destroy']);
+    Route::post('/inventory/{inventory}/restock', [\App\Http\Controllers\InventoryController::class, 'restock']);
 
     // Super Admin Routes (SaaS Portal)
     Route::prefix('admin')->group(function () {

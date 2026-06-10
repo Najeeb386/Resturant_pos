@@ -18,13 +18,35 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Invalid credentials']);
         }
 
-        $request->session()->regenerate();
-
         if (auth()->user()->role_id === 1) {
-            return redirect('/admin/dashboard');
+            auth()->logout();
+            return back()->withErrors(['email' => 'Super Admins must use the Admin Portal to log in.']);
         }
 
+        $request->session()->regenerate();
+
         return redirect('/dashboard');
+    }
+
+    public function adminLogin(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if (!auth()->attempt($request->only('email', 'password'))) {
+            return back()->withErrors(['email' => 'Invalid credentials']);
+        }
+
+        if (auth()->user()->role_id !== 1) {
+            auth()->logout();
+            return back()->withErrors(['email' => 'Access denied. You are not a Super Admin.']);
+        }
+
+        $request->session()->regenerate();
+
+        return redirect('/admin/dashboard');
     }
 
     public function register(Request $request)

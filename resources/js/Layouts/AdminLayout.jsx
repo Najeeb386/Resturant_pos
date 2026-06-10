@@ -5,18 +5,21 @@ export default function AdminLayout({ children }) {
     const { auth } = usePage().props;
     const user = auth?.user || { name: 'Admin' };
 
-    const navigation = [
-        { name: 'Dashboard', href: '/dashboard' },
-        { name: 'POS Billing', href: '/pos' },
-        { name: 'Tables', href: '/tables' },
-        { name: 'Kitchen', href: '/kitchen' },
-        { name: 'Menu', href: '/menu' },
-        { name: 'Settings', href: '/settings/profile' },
+    const allNavigation = [
+        { name: 'Dashboard', href: '/dashboard', roles: [2, 3] },
+        { name: 'POS Billing', href: '/pos', roles: [2, 3, 4] },
+        { name: 'Orders', href: '/orders', roles: [2, 3, 6] },
+        { name: 'Tables', href: '/tables', roles: [2, 4] },
+        { name: 'Kitchen', href: '/kitchen', roles: [2, 5] },
+        { name: 'Inventory & Stock', href: '/inventory', roles: [2, 3, 5] },
+        { name: 'Menu', href: '/menu', roles: [2, 3, 4] },
+        { name: 'Expenses', href: '/expenses', roles: [2] },
+        { name: 'Reports', href: '/reports', roles: [2] },
+        { name: 'Staff', href: '/staff', roles: [2] },
+        { name: 'Settings', href: '/settings/profile', roles: [2] },
     ];
 
-    if (user.role_id === 2) {
-        navigation.splice(5, 0, { name: 'Staff', href: '/staff' });
-    }
+    const navigation = allNavigation.filter(item => item.roles.includes(Number(user.role_id)));
 
     return (
         <div className="min-h-screen bg-background flex">
@@ -35,7 +38,7 @@ export default function AdminLayout({ children }) {
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
                                     isActive 
                                     ? 'bg-primary text-white shadow-md shadow-primary/30' 
                                     : 'text-gray-500 hover:bg-orange-50 hover:text-primary'
@@ -51,7 +54,7 @@ export default function AdminLayout({ children }) {
                         href="/logout"
                         method="post"
                         as="button"
-                        className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors duration-200"
+                        className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 rounded-xl hover:bg-red-50 hover:text-red-500"
                     >
                         <span className="font-medium">Logout</span>
                     </Link>

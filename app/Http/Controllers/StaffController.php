@@ -12,6 +12,10 @@ class StaffController extends Controller
 {
     public function index()
     {
+        if (auth()->user()->role_id !== 2) {
+            abort(403, 'Only the Restaurant Owner can manage staff.');
+        }
+
         $restaurantId = auth()->user()->restaurant_id;
         $staff = User::with('role')
             ->where('restaurant_id', $restaurantId)
@@ -28,6 +32,10 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
+        if (auth()->user()->role_id !== 2) {
+            abort(403);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',

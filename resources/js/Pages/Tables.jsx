@@ -4,9 +4,11 @@ import { Card, CardContent } from '../Components/ui/Card';
 import { Badge } from '../Components/ui/Badge';
 import { Button } from '../Components/ui/Button';
 import { Plus, Trash2, X, Loader2 } from 'lucide-react';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 
 export default function Tables({ tables = [] }) {
+    const { auth } = usePage().props;
+    const isOwner = auth?.user?.role_id === 2;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
@@ -83,25 +85,29 @@ export default function Tables({ tables = [] }) {
                         <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                         <span className="text-sm text-gray-600">Cleaning</span>
                     </div>
-                    <Button onClick={() => openModal()} className="sm:ml-4 flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Add Table
-                    </Button>
+                    {isOwner && (
+                        <Button onClick={() => openModal()} className="sm:ml-4 flex items-center gap-2">
+                            <Plus className="w-4 h-4" /> Add Table
+                        </Button>
+                    )}
                 </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {tables.map(table => (
-                    <Card key={table.id} onClick={() => openModal(table)} className={`cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg relative group ${
+                    <Card key={table.id} onClick={() => isOwner ? openModal(table) : null} className={`transition-all relative group ${isOwner ? 'cursor-pointer hover:-translate-y-1 hover:shadow-lg' : ''} ${
                         table.status === 'occupied' ? 'border-red-200 bg-red-50/10' :
                         table.status === 'reserved' ? 'border-blue-200 bg-blue-50/10' :
                         table.status === 'cleaning' ? 'border-yellow-200 bg-yellow-50/10' :
                         'border-green-200 bg-green-50/10'
                     }`}>
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => handleDelete(table.id, e)} className="p-1.5 bg-white text-red-500 hover:bg-red-50 rounded-lg shadow-sm">
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
+                        {isOwner && (
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => handleDelete(table.id, e)} className="p-1.5 bg-white text-red-500 hover:bg-red-50 rounded-lg shadow-sm">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                         <CardContent className="p-6">
                             <div className="flex justify-between items-start mb-4">
                                 <h3 className="text-xl font-bold text-gray-800">Table {table.table_number}</h3>

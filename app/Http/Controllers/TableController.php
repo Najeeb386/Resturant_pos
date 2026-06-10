@@ -19,6 +19,8 @@ class TableController extends Controller
 
     public function store(Request $request)
     {
+        if (auth()->user()->role_id !== 2) abort(403, 'Unauthorized action.');
+
         $request->validate([
             'table_number' => 'required|string|max:255',
             'capacity' => 'required|integer|min:1',
@@ -37,6 +39,8 @@ class TableController extends Controller
 
     public function update(Request $request, Table $table)
     {
+        if (auth()->user()->role_id !== 2) abort(403, 'Unauthorized action.');
+
         if ($table->restaurant_id !== auth()->user()->restaurant_id) {
             abort(403);
         }
@@ -54,6 +58,8 @@ class TableController extends Controller
 
     public function destroy(Table $table)
     {
+        if (auth()->user()->role_id !== 2) abort(403, 'Unauthorized action.');
+
         if ($table->restaurant_id !== auth()->user()->restaurant_id) {
             abort(403);
         }

@@ -3,15 +3,21 @@ import AdminLayout from '../Layouts/AdminLayout';
 import { Card, CardContent } from '../Components/ui/Card';
 import { Button } from '../Components/ui/Button';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X, Loader2 } from 'lucide-react';
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
 
 export default function POS({ categories = [], menuItems = [], tables = [], restaurant = {}, openBills = {}, flash = {}, allDrafts = [] }) {
+    const { auth } = usePage().props;
+    const isWaiter = auth?.user?.role_id === 4;
+
     const [activeCategory, setActiveCategory] = useState('All');
     const [cart, setCart] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTable, setSelectedTable] = useState('');
-    const [orderType, setOrderType] = useState('takeaway'); // takeaway | dine_in | delivery
+    const [orderType, setOrderType] = useState(isWaiter ? 'dine_in' : 'takeaway'); // takeaway | dine_in | delivery
     const [customerName, setCustomerName] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
+    const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [deliveryFee, setDeliveryFee] = useState('');
     const [showReceipt, setShowReceipt] = useState(false);
     const [lastOrder, setLastOrder] = useState(null);
     const [currentOrderId, setCurrentOrderId] = useState(null);
@@ -22,9 +28,12 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         table_id: '',
         order_type: 'takeaway',
         customer_name: '',
+        customer_phone: '',
+        delivery_address: '',
         cart: [],
         subtotal: 0,
         tax: 0,
+        delivery_fee: 0,
         total: 0,
         payment_method: 'Cash'
     });
@@ -60,7 +69,8 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     const taxRate = restaurant.tax_percentage ? parseFloat(restaurant.tax_percentage) / 100 : 0.10;
     const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    const parsedDeliveryFee = orderType === 'delivery' ? (parseFloat(deliveryFee) || 0) : 0;
+    const total = subtotal + tax + parsedDeliveryFee;
     const currency = restaurant.currency_symbol || '$';
 
     // Sync cart to form data
@@ -70,13 +80,16 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
             cart: cart,
             subtotal: subtotal,
             tax: tax,
+            delivery_fee: parsedDeliveryFee,
             total: total,
             table_id: selectedTable || null,
             order_type: orderType,
             customer_name: customerName,
+            customer_phone: customerPhone,
+            delivery_address: deliveryAddress,
             order_id: currentOrderId
         }));
-    }, [cart, subtotal, tax, total, selectedTable, orderType, customerName, currentOrderId]);
+    }, [cart, subtotal, tax, total, selectedTable, orderType, customerName, customerPhone, deliveryAddress, parsedDeliveryFee, currentOrderId]);
 
     const handleCheckout = () => {
         post('/pos/checkout', {
@@ -89,12 +102,18 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     method: data.payment_method,
                     table: tables.find(t => t.id == selectedTable)?.table_number || (orderType === 'delivery' ? 'Delivery' : 'Takeaway'),
                     customer: customerName || 'Walk-in',
+                    phone: customerPhone,
+                    address: deliveryAddress,
+                    delivery_fee: parsedDeliveryFee,
                     order_id: page.props?.flash?.order_id || 'N/A',
                     date: new Date().toLocaleString()
                 });
                 setCart([]);
                 setSelectedTable('');
                 setCustomerName('');
+                setCustomerPhone('');
+                setDeliveryAddress('');
+                setDeliveryFee('');
                 setOrderType('takeaway');
                 setCurrentOrderId(null);
                 setShowReceipt(true);
@@ -114,6 +133,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setCart([]);
                 setSelectedTable('');
                 setCustomerName('');
+                setCustomerPhone('');
+                setDeliveryAddress('');
+                setDeliveryFee('');
                 setOrderType('takeaway');
                 setCurrentOrderId(null);
                 reset();
@@ -150,6 +172,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         setSelectedTable(draft.table_id || '');
         setOrderType(draft.order_type || 'takeaway');
         setCustomerName(draft.customer_name || '');
+        setCustomerPhone(draft.customer_phone || '');
+        setDeliveryAddress(draft.delivery_address || '');
+        setDeliveryFee(draft.delivery_fee > 0 ? draft.delivery_fee.toString() : '');
         setCurrentOrderId(draft.id);
 
         const loadedCart = draft.items.map(item => ({
@@ -276,13 +301,50 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                             setSelectedTable('');
                                         }
                                     }}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                    disabled={isWaiter}
+                                    className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${isWaiter ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
                                 >
-                                    <option value="takeaway">Takeaway</option>
+                                    {!isWaiter && <option value="takeaway">Takeaway</option>}
                                     <option value="dine_in">Dine In</option>
-                                    <option value="delivery">Delivery</option>
+                                    {!isWaiter && <option value="delivery">Delivery</option>}
                                 </select>
                             </div>
+
+                            {/* Delivery Fields */}
+                            {orderType === 'delivery' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Customer Phone</label>
+                                        <input
+                                            type="text"
+                                            value={customerPhone}
+                                            onChange={(e) => setCustomerPhone(e.target.value)}
+                                            placeholder="Enter phone number"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Delivery Address</label>
+                                        <textarea
+                                            value={deliveryAddress}
+                                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                                            placeholder="Enter full address"
+                                            rows="2"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Delivery Fee</label>
+                                        <input
+                                            type="number"
+                                            value={deliveryFee}
+                                            onChange={(e) => setDeliveryFee(e.target.value)}
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Table Selection + Open Bills - Only for Dine In */}
                             {orderType === 'dine_in' && (
@@ -400,6 +462,12 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 <span>Tax ({restaurant.tax_percentage || 10}%)</span>
                                 <span>{currency}{tax.toFixed(2)}</span>
                             </div>
+                            {parsedDeliveryFee > 0 && (
+                                <div className="flex justify-between text-gray-500 text-sm">
+                                    <span>Delivery Fee</span>
+                                    <span>{currency}{parsedDeliveryFee.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-bold text-xl pt-2 border-t border-gray-200 text-gray-900">
                                 <span>Total</span>
                                 <span>{currency}{total.toFixed(2)}</span>
@@ -407,49 +475,60 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                         </div>
 
                         {/* Save as Draft Button - for open bills (especially Dine In) */}
-                        <button
-                            type="button"
-                            className="w-full mb-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all text-sm"
-                            onClick={handleSaveDraft}
-                            disabled={cart.length === 0 || processing}
-                        >
-                            Save as Draft (Open Bill)
-                        </button>
+                        {(orderType === 'dine_in' || isWaiter) && (
+                            <button
+                                type="button"
+                                className={`w-full mb-4 py-2.5 rounded-xl font-semibold transition-all text-sm ${
+                                    isWaiter 
+                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border-2 border-amber-200 shadow-sm' 
+                                    : 'border-2 border-dashed border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50'
+                                }`}
+                                onClick={handleSaveDraft}
+                                disabled={cart.length === 0 || processing}
+                            >
+                                {isWaiter ? 'Send to Kitchen (Save Draft)' : 'Save as Draft (Open Bill)'}
+                            </button>
+                        )}
 
-                        <div className="flex gap-1 mb-4 bg-gray-100 p-1.5 rounded-xl">
-                            {['Cash', 'Card', 'QR Pay'].map(method => (
-                                <button
-                                    key={method}
-                                    type="button"
-                                    onClick={() => setData('payment_method', method)}
-                                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                                        data.payment_method === method 
-                                        ? 'bg-white text-gray-800 shadow-sm' 
-                                        : 'text-gray-500 hover:text-gray-700'
-                                    }`}
+                        {!isWaiter && (
+                            <>
+                                <div className="flex gap-1 mb-4 bg-gray-100 p-1.5 rounded-xl">
+                                    {['Cash', 'Card', 'QR Pay', ...(orderType === 'delivery' ? ['Cash on Delivery'] : [])].map(method => (
+                                        <button
+                                            key={method}
+                                            type="button"
+                                            onClick={() => setData('payment_method', method)}
+                                            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                                data.payment_method === method 
+                                                ? 'bg-white text-gray-800 shadow-sm' 
+                                                : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {method === 'Cash' && <Banknote className="w-4 h-4" />}
+                                            {method === 'Card' && <CreditCard className="w-4 h-4" />}
+                                            {method === 'QR Pay' && <QrCode className="w-4 h-4" />}
+                                            {method === 'Cash on Delivery' && <Banknote className="w-4 h-4" />}
+                                            {method === 'Cash on Delivery' ? 'COD' : method}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <Button 
+                                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 text-base rounded-xl transition-all flex justify-between items-center px-5 shadow-md shadow-primary/20"
+                                    onClick={handleCheckout}
+                                    disabled={cart.length === 0 || processing}
                                 >
-                                    {method === 'Cash' && <Banknote className="w-4 h-4" />}
-                                    {method === 'Card' && <CreditCard className="w-4 h-4" />}
-                                    {method === 'QR Pay' && <QrCode className="w-4 h-4" />}
-                                    {method}
-                                </button>
-                            ))}
-                        </div>
-
-                        <Button 
-                            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 text-base rounded-xl transition-all flex justify-between items-center px-5 shadow-md shadow-primary/20"
-                            onClick={handleCheckout}
-                            disabled={cart.length === 0 || processing}
-                        >
-                            <span>Pay Now</span>
-                            <span>
-                                {processing ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    `${currency}${total.toFixed(2)}`
-                                )}
-                            </span>
-                        </Button>
+                                    <span>Pay Now</span>
+                                    <span>
+                                        {processing ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            `${currency}${total.toFixed(2)}`
+                                        )}
+                                    </span>
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -486,6 +565,12 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                     <span>Tax</span>
                                     <span>{currency}{lastOrder.tax.toFixed(2)}</span>
                                 </div>
+                                {lastOrder.delivery_fee > 0 && (
+                                    <div className="flex justify-between text-sm text-gray-600">
+                                        <span>Delivery Fee</span>
+                                        <span>{currency}{lastOrder.delivery_fee.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between font-bold text-lg pt-2">
                                     <span>Total</span>
                                     <span>{currency}{lastOrder.total.toFixed(2)}</span>

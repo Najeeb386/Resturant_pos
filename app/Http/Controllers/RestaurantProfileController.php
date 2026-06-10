@@ -11,6 +11,10 @@ class RestaurantProfileController extends Controller
 {
     public function edit()
     {
+        if (auth()->user()->role_id !== 2) {
+            abort(403);
+        }
+
         $restaurant = auth()->user()->restaurant;
         return Inertia::render('Settings/Profile', [
             'restaurant' => $restaurant
@@ -19,6 +23,10 @@ class RestaurantProfileController extends Controller
 
     public function update(Request $request)
     {
+        if (auth()->user()->role_id !== 2) {
+            abort(403);
+        }
+
         $restaurant = auth()->user()->restaurant;
 
         $request->validate([

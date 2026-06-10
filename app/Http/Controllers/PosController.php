@@ -61,6 +61,9 @@ class PosController extends Controller
                     'table_number' => $order->table ? $order->table->table_number : null,
                     'order_type' => $order->order_type,
                     'customer_name' => $order->customer_name,
+                    'customer_phone' => $order->customer_phone,
+                    'delivery_address' => $order->delivery_address,
+                    'delivery_fee' => (float) $order->delivery_fee,
                     'items' => $order->orderItems->map(fn($item) => [
                         'id' => $item->menu_item_id,
                         'name' => $item->menuItem?->name ?? 'Item',
@@ -95,6 +98,9 @@ class PosController extends Controller
             'table_id' => 'nullable|exists:tables,id',
             'order_type' => 'required|in:takeaway,dine_in,delivery',
             'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|required_if:order_type,delivery|string|max:20',
+            'delivery_address' => 'nullable|required_if:order_type,delivery|string',
+            'delivery_fee' => 'nullable|numeric',
             'cart' => 'required|array|min:1',
             'cart.*.id' => 'required|exists:menu_items,id',
             'cart.*.qty' => 'required|integer|min:1',
@@ -125,6 +131,21 @@ class PosController extends Controller
                     $menuItem = MenuItem::find($existingItem->menu_item_id);
                     if ($menuItem) {
                         $menuItem->increment('stock_quantity', $existingItem->quantity);
+                        
+                        // Restore ingredients
+                        foreach ($menuItem->ingredients as $ingredient) {
+                            $ingredient->increment('quantity', $ingredient->pivot->quantity * $existingItem->quantity);
+                        }
+
+                        // Restore deal child items
+                        if ($menuItem->is_deal && $menuItem->dealItems) {
+                            foreach ($menuItem->dealItems as $dealItem) {
+                                $dealItem->increment('stock_quantity', $dealItem->pivot->quantity * $existingItem->quantity);
+                                foreach ($dealItem->ingredients as $ingredient) {
+                                    $ingredient->increment('quantity', $ingredient->pivot->quantity * $dealItem->pivot->quantity * $existingItem->quantity);
+                                }
+                            }
+                        }
                     }
                 }
                 OrderItem::where('order_id', $order->id)->delete();
@@ -133,6 +154,10 @@ class PosController extends Controller
                     'table_id' => $request->table_id,
                     'order_type' => $request->order_type ?? ($request->table_id ? 'dine_in' : 'takeaway'),
                     'customer_name' => $request->customer_name,
+                    'customer_phone' => $request->customer_phone,
+                    'delivery_address' => $request->delivery_address,
+                    'delivery_fee' => $request->delivery_fee ?? 0,
+                    'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
                     'status' => 'pending',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
@@ -146,6 +171,10 @@ class PosController extends Controller
                     'user_id' => auth()->id(),
                     'order_type' => $request->order_type ?? ($request->table_id ? 'dine_in' : 'takeaway'),
                     'customer_name' => $request->customer_name,
+                    'customer_phone' => $request->customer_phone,
+                    'delivery_address' => $request->delivery_address,
+                    'delivery_fee' => $request->delivery_fee ?? 0,
+                    'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
                     'status' => 'pending',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
@@ -156,19 +185,44 @@ class PosController extends Controller
             }
 
             foreach ($request->cart as $item) {
+                $menuItem = MenuItem::find($item['id']);
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'menu_item_id' => $item['id'],
                     'quantity' => $item['qty'],
                     'price' => $item['price'],
+                    'cost_price' => $menuItem ? $menuItem->cost_price : 0,
                 ]);
 
                 // Decrease stock quantity
-                $menuItem = MenuItem::find($item['id']);
                 if ($menuItem && $menuItem->stock_quantity > 0) {
-                    // Prevent negative stock
+                    // Prevent negative stock for the finished product
                     $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
                     $menuItem->decrement('stock_quantity', $decrementAmount);
+                }
+
+                // Deduct recipe ingredients (Allowing negative inventory per Option A)
+                if ($menuItem && $menuItem->ingredients) {
+                    foreach ($menuItem->ingredients as $ingredient) {
+                        $qtyToDeduct = $ingredient->pivot->quantity * $item['qty'];
+                        $ingredient->decrement('quantity', $qtyToDeduct);
+                    }
+                }
+
+                // Deduct deal items
+                if ($menuItem && $menuItem->is_deal && $menuItem->dealItems) {
+                    foreach ($menuItem->dealItems as $dealItem) {
+                        $qtyToDeduct = $dealItem->pivot->quantity * $item['qty'];
+                        if ($dealItem->stock_quantity > 0) {
+                            $decrementAmount = min($qtyToDeduct, $dealItem->stock_quantity);
+                            $dealItem->decrement('stock_quantity', $decrementAmount);
+                        }
+                        foreach ($dealItem->ingredients as $ingredient) {
+                            $ingQtyToDeduct = $ingredient->pivot->quantity * $qtyToDeduct;
+                            $ingredient->decrement('quantity', $ingQtyToDeduct);
+                        }
+                    }
                 }
             }
 
@@ -203,6 +257,9 @@ class PosController extends Controller
             'table_id' => 'nullable|exists:tables,id',
             'order_type' => 'required|in:takeaway,dine_in,delivery',
             'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+            'delivery_address' => 'nullable|string',
+            'delivery_fee' => 'nullable|numeric',
             'cart' => 'required|array|min:1',
             'cart.*.id' => 'required|exists:menu_items,id',
             'cart.*.qty' => 'required|integer|min:1',
@@ -238,6 +295,21 @@ class PosController extends Controller
                     $menuItem = MenuItem::find($existingItem->menu_item_id);
                     if ($menuItem) {
                         $menuItem->increment('stock_quantity', $existingItem->quantity);
+
+                        // Restore ingredients
+                        foreach ($menuItem->ingredients as $ingredient) {
+                            $ingredient->increment('quantity', $ingredient->pivot->quantity * $existingItem->quantity);
+                        }
+
+                        // Restore deal child items
+                        if ($menuItem->is_deal && $menuItem->dealItems) {
+                            foreach ($menuItem->dealItems as $dealItem) {
+                                $dealItem->increment('stock_quantity', $dealItem->pivot->quantity * $existingItem->quantity);
+                                foreach ($dealItem->ingredients as $ingredient) {
+                                    $ingredient->increment('quantity', $ingredient->pivot->quantity * $dealItem->pivot->quantity * $existingItem->quantity);
+                                }
+                            }
+                        }
                     }
                 }
                 OrderItem::where('order_id', $existingOrder->id)->delete();
@@ -247,6 +319,9 @@ class PosController extends Controller
                     'table_id' => $request->table_id,
                     'order_type' => $request->order_type,
                     'customer_name' => $request->customer_name,
+                    'customer_phone' => $request->customer_phone,
+                    'delivery_address' => $request->delivery_address,
+                    'delivery_fee' => $request->delivery_fee ?? 0,
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'total' => $request->total,
@@ -261,6 +336,10 @@ class PosController extends Controller
                     'user_id' => auth()->id(),
                     'order_type' => $request->order_type,
                     'customer_name' => $request->customer_name,
+                    'customer_phone' => $request->customer_phone,
+                    'delivery_address' => $request->delivery_address,
+                    'delivery_fee' => $request->delivery_fee ?? 0,
+                    'payment_status' => 'unpaid',
                     'status' => 'draft',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
@@ -271,18 +350,43 @@ class PosController extends Controller
             }
 
             foreach ($request->cart as $item) {
+                $menuItem = MenuItem::find($item['id']);
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'menu_item_id' => $item['id'],
                     'quantity' => $item['qty'],
                     'price' => $item['price'],
+                    'cost_price' => $menuItem ? $menuItem->cost_price : 0,
                 ]);
 
                 // Deduct stock
-                $menuItem = MenuItem::find($item['id']);
                 if ($menuItem && $menuItem->stock_quantity > 0) {
                     $decrementAmount = min($item['qty'], $menuItem->stock_quantity);
                     $menuItem->decrement('stock_quantity', $decrementAmount);
+                }
+
+                // Deduct recipe ingredients (Allowing negative inventory per Option A)
+                if ($menuItem && $menuItem->ingredients) {
+                    foreach ($menuItem->ingredients as $ingredient) {
+                        $qtyToDeduct = $ingredient->pivot->quantity * $item['qty'];
+                        $ingredient->decrement('quantity', $qtyToDeduct);
+                    }
+                }
+
+                // Deduct deal items
+                if ($menuItem && $menuItem->is_deal && $menuItem->dealItems) {
+                    foreach ($menuItem->dealItems as $dealItem) {
+                        $qtyToDeduct = $dealItem->pivot->quantity * $item['qty'];
+                        if ($dealItem->stock_quantity > 0) {
+                            $decrementAmount = min($qtyToDeduct, $dealItem->stock_quantity);
+                            $dealItem->decrement('stock_quantity', $decrementAmount);
+                        }
+                        foreach ($dealItem->ingredients as $ingredient) {
+                            $ingQtyToDeduct = $ingredient->pivot->quantity * $qtyToDeduct;
+                            $ingredient->decrement('quantity', $ingQtyToDeduct);
+                        }
+                    }
                 }
             }
 

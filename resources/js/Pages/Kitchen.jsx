@@ -16,13 +16,11 @@ export default function Kitchen({ orders = [] }) {
         return () => clearInterval(interval);
     }, []);
 
-    const { post } = useForm();
     const [updatingId, setUpdatingId] = React.useState(null);
 
     const updateStatus = (id, newStatus) => {
         setUpdatingId(id);
-        post(`/kitchen/${id}/status`, {
-            data: { status: newStatus },
+        router.post(`/kitchen/${id}/status`, { status: newStatus }, {
             preserveScroll: true,
             onFinish: () => setUpdatingId(null)
         });
