@@ -19,6 +19,7 @@ export default function Profile({ restaurant }) {
         tax_percentage: restaurant.tax_percentage || 10,
         receipt_header: restaurant.receipt_header || '',
         receipt_footer: restaurant.receipt_footer || '',
+        kitchen_bypass: Boolean(restaurant.kitchen_bypass),
         logo: null,
         _method: 'post', // Since we use POST route for handling files easily in Laravel
     });
@@ -186,6 +187,27 @@ export default function Profile({ restaurant }) {
                                         />
                                         {errors.tax_percentage && <p className="text-red-500 text-xs mt-1">{errors.tax_percentage}</p>}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Kitchen Settings */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <h3 className="font-semibold text-gray-900 mb-4">Kitchen Workflow</h3>
+                                <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
+                                    <label className="flex items-start gap-3 cursor-pointer">
+                                        <div className="flex items-center h-5 mt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.kitchen_bypass}
+                                                onChange={e => setData('kitchen_bypass', e.target.checked)}
+                                                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="block text-sm font-medium text-orange-900">Bypass Kitchen Module</span>
+                                            <span className="block text-sm text-orange-700 mt-1">If enabled, the cashier/owner can manually mark orders as Preparing, Ready, and Completed directly from the POS or Orders screen. Useful if you don't have a separate kitchen display.</span>
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
 

@@ -188,8 +188,20 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         setShowDraftsModal(false);
     };
 
-    const handlePrint = () => {
-        window.print();
+    const printReceipt = () => {
+        if (lastOrder && lastOrder.order_id !== 'N/A') {
+            window.open(`/orders/${lastOrder.order_id}/receipt`, '_blank', 'width=400,height=600');
+        } else {
+            alert('Order ID not available for printing.');
+        }
+    };
+
+    const printKOT = () => {
+        if (lastOrder && lastOrder.order_id !== 'N/A') {
+            window.open(`/orders/${lastOrder.order_id}/kot`, '_blank', 'width=400,height=600');
+        } else {
+            alert('Order ID not available for KOT.');
+        }
     };
 
     return (
@@ -581,11 +593,14 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 Paid via {lastOrder.method}
                             </div>
 
-                            <div className="flex gap-3 print:hidden">
-                                <Button className="flex-1 flex justify-center gap-2" onClick={handlePrint}>
-                                    <Printer className="w-4 h-4" /> Print
+                            <div className="flex flex-col sm:flex-row gap-3 print:hidden">
+                                <Button className="flex-1 flex justify-center gap-2 bg-slate-800 hover:bg-slate-900" onClick={printReceipt}>
+                                    <Printer className="w-4 h-4" /> Print Receipt
                                 </Button>
-                                <Button variant="outline" className="flex-1" onClick={() => setShowReceipt(false)}>
+                                <Button className="flex-1 flex justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white" onClick={printKOT}>
+                                    <Printer className="w-4 h-4" /> Print KOT
+                                </Button>
+                                <Button variant="outline" className="flex-none" onClick={() => setShowReceipt(false)}>
                                     <X className="w-4 h-4" /> Close
                                 </Button>
                             </div>

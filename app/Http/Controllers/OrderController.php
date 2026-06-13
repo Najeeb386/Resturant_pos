@@ -44,7 +44,9 @@ class OrderController extends Controller
             });
 
         return Inertia::render('Orders', [
-            'orders' => $orders
+            'orders' => $orders,
+            'kitchen_bypass' => (bool) auth()->user()->restaurant->kitchen_bypass,
+            'currency_symbol' => auth()->user()->restaurant->currency_symbol ?? '$'
         ]);
     }
 
@@ -94,5 +96,35 @@ class OrderController extends Controller
         }
 
         return redirect()->back()->with('message', 'Order status updated successfully.');
+    }
+
+    public function printReceipt(Order $order)
+    {
+        if ($order->restaurant_id !== auth()->user()->restaurant_id) {
+            abort(403);
+        }
+
+        $order->load(['orderItems.menuItem', 'table']);
+        $restaurant = auth()->user()->restaurant;
+
+        return view('print.receipt', [
+            'order' => $order,
+            'restaurant' => $restaurant
+        ]);
+    }
+
+    public function printKOT(Order $order)
+    {
+        if ($order->restaurant_id !== auth()->user()->restaurant_id) {
+            abort(403);
+        }
+
+        $order->load(['orderItems.menuItem', 'table']);
+        $restaurant = auth()->user()->restaurant;
+
+        return view('print.kot', [
+            'order' => $order,
+            'restaurant' => $restaurant
+        ]);
     }
 }

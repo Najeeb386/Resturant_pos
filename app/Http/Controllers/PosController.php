@@ -395,9 +395,10 @@ class PosController extends Controller
                 Table::find($request->table_id)->update(['status' => 'occupied']);
             }
 
-            DB::commit();
-
-            return redirect()->back()->with('message', 'Order saved as draft successfully.');
+            DB::commit();            return redirect()->back()->with([
+                'message' => 'Order saved as draft successfully.',
+                'order_id' => $order->id
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();

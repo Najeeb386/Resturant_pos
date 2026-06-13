@@ -6,7 +6,7 @@ import { Button } from '../Components/ui/Button';
 import { Check, X, Search, MapPin, Phone, Banknote, Loader2 } from 'lucide-react';
 import { useForm, router } from '@inertiajs/react';
 
-export default function Orders({ orders = { data: [] } }) {
+export default function Orders({ orders = { data: [] }, kitchen_bypass = false, currency_symbol = '$' }) {
     const [filter, setFilter] = useState('all'); // all | pending_cod | completed | cancelled
     const [processingId, setProcessingId] = useState(null);
 
@@ -146,9 +146,9 @@ export default function Orders({ orders = { data: [] } }) {
                                         </div>
                                     </td>
                                     <td className="p-4 align-top text-right">
-                                        <div className="font-bold text-lg text-gray-900">${order.total.toFixed(2)}</div>
+                                        <div className="font-bold text-lg text-gray-900">{currency_symbol}{order.total.toFixed(2)}</div>
                                         {order.delivery_fee > 0 && (
-                                            <div className="text-[10px] text-gray-500">Includes ${order.delivery_fee.toFixed(2)} fee</div>
+                                            <div className="text-[10px] text-gray-500">Includes {currency_symbol}{order.delivery_fee.toFixed(2)} fee</div>
                                         )}
                                     </td>
                                     <td className="p-4 align-top">
@@ -165,6 +165,30 @@ export default function Orders({ orders = { data: [] } }) {
                                                 </Button>
                                             )}
                                             
+                                            {kitchen_bypass && order.status === 'pending' && (
+                                                <Button 
+                                                    size="sm" 
+                                                    className="w-28 bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-1.5"
+                                                    onClick={() => updateStatus(order.id, 'preparing')}
+                                                    disabled={processingId === `status-${order.id}`}
+                                                >
+                                                    {processingId === `status-${order.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    Prepare
+                                                </Button>
+                                            )}
+
+                                            {kitchen_bypass && order.status === 'preparing' && (
+                                                <Button 
+                                                    size="sm" 
+                                                    className="w-28 bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-1.5"
+                                                    onClick={() => updateStatus(order.id, 'completed')}
+                                                    disabled={processingId === `status-${order.id}`}
+                                                >
+                                                    {processingId === `status-${order.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    Complete
+                                                </Button>
+                                            )}
+
                                             {order.status !== 'cancelled' && order.status !== 'completed' && (
                                                 <Button 
                                                     size="sm" 
