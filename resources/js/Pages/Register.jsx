@@ -30,15 +30,15 @@ export default function Register({ plans = [], currencySymbol = '$' }) {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 selection:bg-primary/30">
-            <Head title="Start Free Trial - RestoPOS" />
+            <Head title="Start Free Trial - DineDesk" />
 
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-tr from-primary to-orange-400 text-white shadow-lg mb-4 hover:shadow-xl transition-shadow">
-                        <Store className="w-6 h-6" />
+                    <Link href="/" className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 hover:scale-105 transition-transform">
+                        <img src="/images/logo.png" alt="DineDesk Logo" className="w-14 h-14 object-contain shadow-lg shadow-orange-500/20 rounded-2xl" />
                     </Link>
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Create your account</h1>
-                    <p className="text-gray-500">Start your 14-day free trial. No credit card required.</p>
+                    <p className="text-gray-500">Start your 14-day free trial on DineDesk. No credit card required.</p>
                 </div>
 
                 <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">

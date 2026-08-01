@@ -13,9 +13,10 @@ export default function Login() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Sign in to Restaurant POS
+                <div className="flex flex-col items-center">
+                    <img src="/images/logo.png" alt="DineDesk Logo" className="w-16 h-16 rounded-2xl object-contain shadow-lg shadow-orange-500/20 mb-3" />
+                    <h2 className="text-center text-3xl font-extrabold text-gray-900">
+                        Sign in to DineDesk
                     </h2>
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

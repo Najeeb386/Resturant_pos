@@ -16,14 +16,14 @@ export default function AdminLogin() {
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 selection:bg-primary/30">
-            <Head title="Super Admin Portal - Login" />
+            <Head title="DineDesk SaaS Admin Portal - Login" />
             
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-800 border border-gray-700 shadow-xl mb-4">
-                        <ShieldAlert className="w-8 h-8 text-primary" />
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-800 border border-gray-700 shadow-xl mb-4 p-2">
+                        <img src="/images/logo.png" alt="DineDesk Logo" className="w-full h-full object-contain" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Admin Portal</h1>
+                    <h1 className="text-3xl font-bold text-white mb-2">DineDesk SaaS Admin</h1>
                     <p className="text-gray-400">Secure access for platform administrators.</p>
                 </div>
 
@@ -36,7 +36,7 @@ export default function AdminLogin() {
                                 value={data.email}
                                 onChange={e => setData('email', e.target.value)}
                                 className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                                placeholder="admin@restopos.com"
+                                placeholder="admin@dinedesk.com"
                                 required
                             />
                             {errors.email && <p className="text-red-400 text-sm mt-2">{errors.email}</p>}

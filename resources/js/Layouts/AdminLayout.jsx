@@ -25,10 +25,10 @@ export default function AdminLayout({ children }) {
         <div className="min-h-screen bg-background flex">
             {/* Sidebar */}
             <div className="w-64 bg-white shadow-xl flex flex-col fixed h-full z-10 transition-all duration-300">
-                <div className="flex items-center justify-center h-20 border-b border-gray-100">
-                    <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-                        <span className="bg-primary text-white p-2 rounded-lg">POS</span>
-                        Smart
+                <div className="flex items-center px-6 h-20 border-b border-gray-100 gap-3">
+                    <img src="/images/logo.png" alt="DineDesk Logo" className="w-9 h-9 rounded-xl object-contain shadow-sm" />
+                    <h1 className="text-xl font-extrabold tracking-tight text-gray-900">
+                        Dine<span className="text-primary">Desk</span>
                     </h1>
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">

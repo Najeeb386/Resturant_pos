@@ -14,10 +14,10 @@ class RestaurantSeeder extends Seeder
     {
         \DB::table('restaurants')->insert([
             [
-                'name' => 'Tasty Station',
+                'name' => 'DineDesk Bistro',
                 'address' => '123 Main Street, City, State 12345',
                 'phone' => '+1-234-567-8900',
-                'email' => 'contact@tastystation.com',
+                'email' => 'contact@dinedesk.com',
                 'gst_number' => 'GST123456789',
                 'currency' => 'INR',
                 'created_at' => now(),
