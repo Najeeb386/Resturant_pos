@@ -211,6 +211,14 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         }
     };
 
+    const printBoth = () => {
+        if (lastOrder && lastOrder.order_id !== 'N/A') {
+            window.open(`/orders/${lastOrder.order_id}/both`, '_blank', 'width=400,height=750');
+        } else {
+            alert('Order ID not available for printing.');
+        }
+    };
+
     return (
         <AdminLayout>
             {/* Mobile / Tablet View Switcher */}
@@ -649,14 +657,17 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 Paid via {lastOrder.method}
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-3 print:hidden">
-                                <Button className="flex-1 flex justify-center gap-2 bg-slate-800 hover:bg-slate-900" onClick={printReceipt}>
+                            <div className="grid grid-cols-2 gap-2.5 print:hidden">
+                                <Button className="flex justify-center items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-xs py-2.5 rounded-xl font-bold" onClick={printReceipt}>
                                     <Printer className="w-4 h-4" /> Print Receipt
                                 </Button>
-                                <Button className="flex-1 flex justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white" onClick={printKOT}>
+                                <Button className="flex justify-center items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs py-2.5 rounded-xl font-bold" onClick={printKOT}>
                                     <Printer className="w-4 h-4" /> Print KOT
                                 </Button>
-                                <Button variant="outline" className="flex-none" onClick={() => setShowReceipt(false)}>
+                                <Button className="flex justify-center items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs py-2.5 rounded-xl font-bold shadow-xs" onClick={printBoth}>
+                                    <Printer className="w-4 h-4" /> Print Both (Cut)
+                                </Button>
+                                <Button variant="outline" className="flex justify-center items-center gap-1.5 text-xs py-2.5 rounded-xl font-semibold" onClick={() => setShowReceipt(false)}>
                                     <X className="w-4 h-4" /> Close
                                 </Button>
                             </div>

@@ -34,7 +34,7 @@ if (!function_exists('getBarcodeSVG')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt - {{ $order->id }}</title>
+    <title>Receipt & KOT - {{ $order->id }}</title>
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
@@ -68,7 +68,6 @@ if (!function_exists('getBarcodeSVG')) {
         .header p { margin: 2px 0; font-size: 11px; }
         
         .title { text-transform: uppercase; font-weight: bold; font-size: 14px; margin: 10px 0; }
-        
         .details p { margin: 2px 0; font-size: 11px; }
 
         .items-table td.qty { width: 40px; text-align: center; }
@@ -79,15 +78,35 @@ if (!function_exists('getBarcodeSVG')) {
 
         .grand-total { font-size: 14px; font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; margin-top: 5px; }
         
+        /* Thermal Printer Page Cut Divider */
+        .cut-line {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            margin: 30px 0;
+            border-top: 2px dashed #000;
+            border-bottom: 2px dashed #000;
+            padding: 10px 0;
+            page-break-after: always;
+        }
+
+        /* KOT Styles */
+        .kot-header h1 { margin: 0; font-size: 20px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        .kot-details p { margin: 4px 0; font-size: 14px; }
+        .kot-highlight { font-size: 16px; font-weight: bold; }
+        .kot-items-table td.qty { width: 50px; text-align: center; font-weight: bold; font-size: 16px;}
+        .kot-items-table td.item-name { font-size: 16px; font-weight: bold;}
+
         @media print {
             body { width: 100%; margin: 0; padding: 0; }
             .container { padding: 0; }
+            .cut-line { page-break-after: always; }
         }
     </style>
 </head>
 <body onload="window.print();">
     <div class="container">
-        <!-- Header: Show Logo if uploaded (removing text name), otherwise text name -->
+        <!-- ==================== PART 1: RETAIL RECEIPT ==================== -->
         <div class="header text-center mb-2">
             @if($restaurant->logo)
                 <img src="{{ asset('storage/' . $restaurant->logo) }}" alt="{{ $restaurant->name }}" style="max-width: 180px; max-height: 75px; object-fit: contain; margin: 0 auto 6px auto; display: block;" />
@@ -101,7 +120,6 @@ if (!function_exists('getBarcodeSVG')) {
 
         <div class="text-center title">RETAIL INVOICE</div>
 
-        <!-- Order Details with Bold Bill Number -->
         <div class="details mb-2">
             <p>Date : {{ $order->created_at->format('d/m/Y, h:i A') }}</p>
             <p class="font-bold" style="font-size: 13px; text-transform: uppercase;">Bill No: #{{ $order->id }}</p>
@@ -115,7 +133,6 @@ if (!function_exists('getBarcodeSVG')) {
             @endif
         </div>
 
-        <!-- Items -->
         <table class="items-table mb-2">
             <thead>
                 <tr>
@@ -135,7 +152,6 @@ if (!function_exists('getBarcodeSVG')) {
             </tbody>
         </table>
 
-        <!-- Totals -->
         <table class="totals-table">
             <tr>
                 <td>Sub Total</td>
@@ -175,6 +191,55 @@ if (!function_exists('getBarcodeSVG')) {
             @if($restaurant->receipt_footer)
                 <p>{{ $restaurant->receipt_footer }}</p>
             @endif
+        </div>
+
+        <!-- ==================== CUT DIVIDER ==================== -->
+        <div class="cut-line">
+            ------------------------------------------<br>
+            ✂ - - - - CUT HERE (RECEIPT / KOT) - - - - ✂<br>
+            ------------------------------------------
+        </div>
+
+        <!-- ==================== PART 2: KITCHEN ORDER TICKET (KOT) ==================== -->
+        <div class="kot-header text-center mb-2">
+            <h1>KOT</h1>
+            <h2>Ticket #{{ $order->id }}</h2>
+        </div>
+
+        <div class="kot-details mb-2">
+            <p>Date: {{ $order->created_at->format('d/m/Y, h:i A') }}</p>
+            <p>Type: <span class="kot-highlight">{{ strtoupper($order->order_type) }}</span></p>
+            @if($order->table)
+                <p>Table: <span class="kot-highlight">{{ $order->table->name }}</span></p>
+            @endif
+        </div>
+
+        <table class="items-table kot-items-table mb-2">
+            <thead>
+                <tr>
+                    <th class="text-center">Qty</th>
+                    <th>Item</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($order->orderItems as $item)
+                <tr>
+                    <td class="qty">{{ $item->quantity }} x</td>
+                    <td class="item-name">{{ $item->menuItem->name }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        @if($order->notes)
+            <div style="border: 1px dashed #000; padding: 5px; margin-top: 10px;">
+                <strong>Notes:</strong><br>
+                {{ $order->notes }}
+            </div>
+        @endif
+        
+        <div class="text-center mt-2" style="margin-top: 20px; border-top: 1px dashed #000; padding-top: 5px;">
+            <p style="font-size: 12px;">Kitchen Copy</p>
         </div>
     </div>
 </body>

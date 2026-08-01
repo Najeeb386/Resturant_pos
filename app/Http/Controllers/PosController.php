@@ -22,9 +22,10 @@ class PosController extends Controller
         $menuItems = MenuItem::where('restaurant_id', $restaurantId)->get();
         $tables = Table::where('restaurant_id', $restaurantId)->get();
 
-        // Open draft bills per table
+        // Open running bills per table (where unpaid and not completed)
         $openBills = Order::where('restaurant_id', $restaurantId)
-            ->where('status', 'draft')
+            ->where('payment_status', 'unpaid')
+            ->whereIn('status', ['draft', 'pending', 'preparing'])
             ->whereNotNull('table_id')
             ->with('orderItems.menuItem')
             ->latest()
@@ -47,9 +48,10 @@ class PosController extends Controller
                 ];
             });
 
-        // All drafts for modal
+        // All drafts/open bills for modal
         $allDrafts = Order::where('restaurant_id', $restaurantId)
-            ->where('status', 'draft')
+            ->where('payment_status', 'unpaid')
+            ->whereIn('status', ['draft', 'pending', 'preparing'])
             ->with(['orderItems.menuItem', 'table'])
             ->latest()
             ->get()
@@ -119,7 +121,6 @@ class PosController extends Controller
         try {
             $restaurantId = auth()->user()->restaurant_id;
 
-            // Batch preload all cart menu items & relations in 1 single query
             $cartItemIds = collect($request->cart)->pluck('id')->toArray();
             $menuItemsMap = MenuItem::with(['ingredients', 'dealItems.ingredients'])
                 ->whereIn('id', $cartItemIds)
@@ -167,7 +168,7 @@ class PosController extends Controller
                     'delivery_address' => $request->delivery_address,
                     'delivery_fee' => $request->delivery_fee ?? 0,
                     'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
-                    'status' => 'pending',
+                    'status' => 'completed',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'total' => $request->total,
@@ -184,7 +185,7 @@ class PosController extends Controller
                     'delivery_address' => $request->delivery_address,
                     'delivery_fee' => $request->delivery_fee ?? 0,
                     'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
-                    'status' => 'pending',
+                    'status' => 'completed',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'discount' => 0,
@@ -193,7 +194,6 @@ class PosController extends Controller
                 ]);
             }
 
-            // Create Order Items and update stock in batch
             $orderItemsToInsert = [];
             foreach ($request->cart as $item) {
                 $menuItem = $menuItemsMap->get($item['id']);
@@ -294,7 +294,7 @@ class PosController extends Controller
             } elseif ($request->order_type === 'dine_in' && $request->table_id) {
                 $existingOrder = Order::where('restaurant_id', $restaurantId)
                     ->where('table_id', $request->table_id)
-                    ->whereIn('status', ['draft', 'pending'])
+                    ->where('payment_status', 'unpaid')
                     ->latest()
                     ->first();
             }
@@ -339,6 +339,8 @@ class PosController extends Controller
                     'customer_phone' => $request->customer_phone,
                     'delivery_address' => $request->delivery_address,
                     'delivery_fee' => $request->delivery_fee ?? 0,
+                    'payment_status' => 'unpaid',
+                    'status' => 'draft',
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'total' => $request->total,

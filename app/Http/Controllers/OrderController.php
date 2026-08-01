@@ -127,4 +127,19 @@ class OrderController extends Controller
             'restaurant' => $restaurant
         ]);
     }
+
+    public function printBoth(Order $order)
+    {
+        if ($order->restaurant_id !== auth()->user()->restaurant_id) {
+            abort(403);
+        }
+
+        $order->load(['orderItems.menuItem', 'table']);
+        $restaurant = auth()->user()->restaurant;
+
+        return view('print.both', [
+            'order' => $order,
+            'restaurant' => $restaurant
+        ]);
+    }
 }
