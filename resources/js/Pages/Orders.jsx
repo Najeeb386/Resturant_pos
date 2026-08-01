@@ -44,27 +44,27 @@ export default function Orders({ orders = { data: [] }, kitchen_bypass = false, 
                     <p className="text-gray-500">Track order history, manage deliveries, and update COD payment status.</p>
                 </div>
                 
-                <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1">
+                <div className="flex flex-wrap sm:flex-nowrap bg-white rounded-xl shadow-sm border border-gray-100 p-1 w-full sm:w-auto gap-1">
                     <button 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center ${filter === 'all' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
                         onClick={() => setFilter('all')}
                     >
                         All Orders
                     </button>
                     <button 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'pending_cod' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center ${filter === 'pending_cod' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
                         onClick={() => setFilter('pending_cod')}
                     >
-                        Pending COD Deliveries
+                        Pending COD
                     </button>
                     <button 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'completed' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center ${filter === 'completed' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
                         onClick={() => setFilter('completed')}
                     >
                         Completed
                     </button>
                     <button 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'cancelled' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center ${filter === 'cancelled' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
                         onClick={() => setFilter('cancelled')}
                     >
                         Cancelled

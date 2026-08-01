@@ -34,6 +34,7 @@ class DashboardController extends Controller
         
         $todaysOrders = Order::where('restaurant_id', $restaurantId)
             ->whereDate('created_at', $today)
+            ->where('status', '!=', 'cancelled')
             ->get();
 
         $totalRevenue = $todaysOrders->sum('total');
@@ -46,6 +47,22 @@ class DashboardController extends Controller
         $lowStockItems = MenuItem::where('restaurant_id', $restaurantId)
             ->where('stock_quantity', '<=', 10)
             ->count();
+
+        // Calculate real 7-day Sales Revenue chart data from orders database
+        $salesChartData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = Carbon::today()->subDays($i);
+            $daySales = Order::where('restaurant_id', $restaurantId)
+                ->whereDate('created_at', $date)
+                ->where('status', '!=', 'cancelled')
+                ->sum('total');
+
+            $salesChartData[] = [
+                'name' => $date->format('D'), // Day label (e.g. Mon, Tue)
+                'sales' => (float) round($daySales, 2),
+                'date' => $date->format('M d')
+            ];
+        }
 
         // Recent Orders
         $recentOrders = Order::with('table')
@@ -70,6 +87,7 @@ class DashboardController extends Controller
                 'active' => $activeOrders,
                 'lowStock' => $lowStockItems
             ],
+            'salesChartData' => $salesChartData,
             'recentOrders' => $recentOrders,
             'currency' => $restaurant->currency_symbol ?? '$'
         ]);

@@ -28,7 +28,7 @@ export default function Kitchen({ orders = [] }) {
 
     return (
         <AdminLayout>
-            <div className="mb-6 flex justify-between items-end">
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Kitchen Display System</h1>
                     <p className="text-gray-500">Manage active orders and track preparation times.</p>
@@ -45,7 +45,7 @@ export default function Kitchen({ orders = [] }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {orders.map(order => (
                     <Card key={order.id} className={`border-t-4 shadow-sm hover:shadow-md transition-shadow ${
                         order.status === 'pending' ? 'border-t-red-500' : 'border-t-orange-500'

@@ -93,7 +93,7 @@ export default function Tables({ tables = [] }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {tables.map(table => (
                     <Card key={table.id} onClick={() => isOwner ? openModal(table) : null} className={`transition-all relative group ${isOwner ? 'cursor-pointer hover:-translate-y-1 hover:shadow-lg' : ''} ${
                         table.status === 'occupied' ? 'border-red-200 bg-red-50/10' :

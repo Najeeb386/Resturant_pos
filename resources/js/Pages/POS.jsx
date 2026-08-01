@@ -22,6 +22,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [lastOrder, setLastOrder] = useState(null);
     const [currentOrderId, setCurrentOrderId] = useState(null);
     const [showDraftsModal, setShowDraftsModal] = useState(false);
+    const [mobileTab, setMobileTab] = useState('menu'); // 'menu' | 'cart'
 
     const { data, setData, post, processing, reset } = useForm({
         order_id: null,
@@ -206,9 +207,43 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
     return (
         <AdminLayout>
-            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)] print:hidden">
+            {/* Mobile / Tablet View Switcher */}
+            <div className="lg:hidden flex bg-white p-1.5 rounded-2xl shadow-xs border border-gray-100 mb-4 gap-2">
+                <button
+                    type="button"
+                    onClick={() => setMobileTab('menu')}
+                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                        mobileTab === 'menu' 
+                        ? 'bg-primary text-white shadow-md shadow-primary/20' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <span>🍽️ Menu Items</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setMobileTab('cart')}
+                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all relative ${
+                        mobileTab === 'cart' 
+                        ? 'bg-primary text-white shadow-md shadow-primary/20' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>Cart & Pay</span>
+                    {cart.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                            mobileTab === 'cart' ? 'bg-white text-primary' : 'bg-primary text-white'
+                        }`}>
+                            {cart.length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-7rem)] print:hidden relative pb-16 lg:pb-0">
                 {/* Left Side: Menu */}
-                <div className="flex-1 flex flex-col gap-6">
+                <div className={`flex-1 flex flex-col gap-6 ${mobileTab === 'menu' ? 'flex' : 'hidden lg:flex'}`}>
                     {/* Search and Categories */}
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                         <div className="relative w-full sm:w-72">
@@ -216,7 +251,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             <input 
                                 type="text"
                                 placeholder="Search menu..."
-                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm sm:text-base"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -226,7 +261,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
-                                    className={`px-4 py-2 whitespace-nowrap rounded-xl font-medium transition-colors ${
+                                    className={`px-4 py-2 whitespace-nowrap rounded-xl font-medium text-sm transition-colors ${
                                         activeCategory === cat 
                                         ? 'bg-primary text-white shadow-md shadow-primary/30' 
                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -239,21 +274,21 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     </div>
 
                     {/* Menu Items Grid */}
-                    <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pb-6">
+                    <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-6">
                         {filteredMenu.map(item => (
                             <button
                                 key={item.id}
                                 onClick={() => addToCart(item)}
-                                className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-primary hover:shadow-md transition-all text-left group flex flex-col items-center text-center relative overflow-hidden"
+                                className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-primary hover:shadow-md transition-all text-left group flex flex-col items-center text-center relative overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 {item.image ? (
-                                    <img src={`/storage/${item.image}`} alt={item.name} className="w-16 h-16 object-cover rounded-full mb-3" />
+                                    <img src={`/storage/${item.image}`} alt={item.name} className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-full mb-2 sm:mb-3" />
                                 ) : (
-                                    <div className="text-5xl mb-3">🍽️</div>
+                                    <div className="text-4xl sm:text-5xl mb-2 sm:mb-3">🍽️</div>
                                 )}
-                                <h3 className="font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem]">{item.name}</h3>
-                                <p className="text-primary font-bold mt-2">{currency}{Number(item.price).toFixed(2)}</p>
+                                <h3 className="font-semibold text-gray-800 line-clamp-2 min-h-[2.2rem] text-xs sm:text-sm">{item.name}</h3>
+                                <p className="text-primary font-bold mt-1 sm:mt-2 text-sm sm:text-base">{currency}{Number(item.price).toFixed(2)}</p>
                             </button>
                         ))}
                         {filteredMenu.length === 0 && (
@@ -265,7 +300,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </div>
 
                 {/* Right Side: Cart */}
-                <div className="w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden flex-shrink-0">
+                <div className={`w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden flex-shrink-0 ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
                     
                     {/* Scrollable Top & Cart Items */}
                     <div className="flex-1 overflow-y-auto flex flex-col">
@@ -671,6 +706,23 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Mobile Floating Quick Cart Bar */}
+            {mobileTab === 'menu' && cart.length > 0 && (
+                <div className="lg:hidden fixed bottom-4 left-4 right-4 bg-gray-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-2xl z-30 border border-gray-800">
+                    <div>
+                        <div className="text-xs text-gray-400 font-medium">{cart.reduce((sum, i) => sum + i.qty, 0)} item(s) in order</div>
+                        <div className="text-lg font-extrabold text-white">{currency}{total.toFixed(2)}</div>
+                    </div>
+                    <button
+                        onClick={() => setMobileTab('cart')}
+                        className="bg-primary hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition-all flex items-center gap-2"
+                    >
+                        <span>Review & Pay</span>
+                        <ShoppingCart className="w-4 h-4" />
+                    </button>
                 </div>
             )}
         </AdminLayout>
