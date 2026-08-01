@@ -15,12 +15,12 @@ class KitchenController extends Controller
         $orders = Order::with(['orderItems.menuItem', 'table'])
             ->where('restaurant_id', $restaurantId)
             ->whereIn('status', ['pending', 'preparing'])
-            ->orderBy('created_at', 'asc')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($order) {
                 return [
                     'id' => $order->id,
-                    'table' => $order->table ? 'Table ' . $order->table->table_number : 'Takeaway',
+                    'table' => $order->table ? 'Table ' . $order->table->table_number : ($order->order_type === 'delivery' ? 'Delivery' : 'Takeaway'),
                     'status' => $order->status,
                     'time' => $order->created_at->format('H:i'),
                     'items' => $order->orderItems->map(function ($item) {
@@ -35,6 +35,37 @@ class KitchenController extends Controller
 
         return Inertia::render('Kitchen', [
             'orders' => $orders
+        ]);
+    }
+
+    public function liveOrders()
+    {
+        $restaurantId = auth()->user()->restaurant_id;
+
+        $orders = Order::with(['orderItems.menuItem', 'table'])
+            ->where('restaurant_id', $restaurantId)
+            ->whereIn('status', ['pending', 'preparing'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'table' => $order->table ? 'Table ' . $order->table->table_number : ($order->order_type === 'delivery' ? 'Delivery' : 'Takeaway'),
+                    'status' => $order->status,
+                    'time' => $order->created_at->format('H:i'),
+                    'items' => $order->orderItems->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'name' => $item->menuItem ? $item->menuItem->name : 'Unknown Item',
+                            'qty' => $item->quantity,
+                        ];
+                    }),
+                ];
+            });
+
+        return response()->json([
+            'orders' => $orders,
+            'count' => $orders->count()
         ]);
     }
 

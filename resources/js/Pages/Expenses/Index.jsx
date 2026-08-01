@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import AdminLayout from '../../Layouts/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../../Components/ui/Card';
+import { Card, CardContent } from '../../Components/ui/Card';
 import { useForm } from '@inertiajs/react';
-import { Plus, Edit2, Trash2, Receipt } from 'lucide-react';
+import { Plus, Edit2, Trash2, Receipt, Search, Filter } from 'lucide-react';
 
-export default function ExpensesIndex({ expenses, currencySymbol }) {
+export default function ExpensesIndex({ expenses, currencySymbol = 'RS' }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
 
     const { data, setData, post, put, delete: destroy, reset, errors, clearErrors } = useForm({
         amount: '',
@@ -15,6 +17,19 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
         notes: ''
     });
 
+    const categories = ['Rent', 'Utilities', 'Payroll', 'Ingredients', 'Marketing', 'Maintenance', 'Other'];
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const cleanDate = dateStr.split('T')[0];
+        const parts = cleanDate.split('-');
+        if (parts.length !== 3) return dateStr;
+        const [year, month, day] = parts;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthIdx = parseInt(month, 10) - 1;
+        return `${monthNames[monthIdx] || month} ${parseInt(day, 10)}, ${year}`;
+    };
+
     const openModal = (expense = null) => {
         clearErrors();
         if (expense) {
@@ -22,7 +37,7 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
             setData({
                 amount: expense.amount,
                 category: expense.category,
-                date: expense.date,
+                date: expense.date ? expense.date.split('T')[0] : '',
                 notes: expense.notes || ''
             });
         } else {
@@ -58,22 +73,58 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
         }
     };
 
-    const categories = ['Rent', 'Utilities', 'Payroll', 'Ingredients', 'Marketing', 'Maintenance', 'Other'];
+    // Real-time Filtering
+    const filteredExpenses = (expenses?.data || []).filter((expense) => {
+        const categoryMatch = selectedCategory === 'All' || expense.category === selectedCategory;
+        const searchMatch = searchQuery === '' ||
+            (expense.notes && expense.notes.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (expense.category && expense.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (expense.amount && expense.amount.toString().includes(searchQuery));
+        return categoryMatch && searchMatch;
+    });
 
     return (
         <AdminLayout>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
                     <p className="text-sm text-gray-500">Track and manage your restaurant's operational costs.</p>
                 </div>
                 <button 
                     onClick={() => openModal()}
-                    className="bg-primary text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-orange-600 transition-colors shadow-sm"
+                    className="bg-primary text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-orange-600 transition-colors shadow-sm font-semibold text-sm"
                 >
                     <Plus className="w-5 h-5" />
                     Log Expense
                 </button>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-xs border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:w-80">
+                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        type="text"
+                        placeholder="Search expenses..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm transition-all"
+                    />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Filter className="w-4 h-4 text-gray-400 shrink-0" />
+                    <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full sm:w-48 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                    >
+                        <option value="All">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             <Card>
@@ -90,11 +141,13 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {expenses.data.map((expense) => (
+                                {filteredExpenses.map((expense) => (
                                     <tr key={expense.id} className="hover:bg-orange-50/30 transition-colors">
-                                        <td className="py-4 px-6 text-gray-700 whitespace-nowrap">{expense.date}</td>
+                                        <td className="py-4 px-6 text-gray-700 font-medium whitespace-nowrap">
+                                            {formatDate(expense.date)}
+                                        </td>
                                         <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                                                 {expense.category}
                                             </span>
                                         </td>
@@ -104,21 +157,21 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
                                         <td className="py-4 px-6 text-gray-500 text-sm truncate max-w-xs">{expense.notes || '-'}</td>
                                         <td className="py-4 px-6 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => openModal(expense)} className="p-2 text-gray-400 hover:text-blue-600 bg-white rounded-lg border border-gray-100 shadow-sm transition-colors">
+                                                <button onClick={() => openModal(expense)} className="p-2 text-gray-400 hover:text-blue-600 bg-white rounded-lg border border-gray-100 shadow-xs transition-colors">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
-                                                <button onClick={() => handleDelete(expense.id)} className="p-2 text-gray-400 hover:text-red-600 bg-white rounded-lg border border-gray-100 shadow-sm transition-colors">
+                                                <button onClick={() => handleDelete(expense.id)} className="p-2 text-gray-400 hover:text-red-600 bg-white rounded-lg border border-gray-100 shadow-xs transition-colors">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
-                                {expenses.data.length === 0 && (
+                                {filteredExpenses.length === 0 && (
                                     <tr>
                                         <td colSpan="5" className="py-12 text-center text-gray-500">
                                             <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                            No expenses logged yet. Add one to track your costs!
+                                            No matching expenses found.
                                         </td>
                                     </tr>
                                 )}
@@ -130,14 +183,14 @@ export default function ExpensesIndex({ expenses, currencySymbol }) {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h2 className="text-xl font-bold text-gray-800">
                                 {editingId ? 'Edit Expense' : 'Log New Expense'}
                             </h2>
                             <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                                <span className="absolute top-6 right-6 font-bold text-xl cursor-pointer" onClick={closeModal}>&times;</span>
+                                <span className="font-bold text-xl cursor-pointer">&times;</span>
                             </button>
                         </div>
                         <div className="p-6">

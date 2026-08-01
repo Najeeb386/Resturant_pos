@@ -3,13 +3,18 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Badge } from '../../Components/ui/Badge';
 import { Button } from '../../Components/ui/Button';
-import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon, Search, Filter } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
 
-export default function Menu({ categories = [], menuItems = [], inventory = [] }) {
+export default function Menu({ categories = [], menuItems = [], inventory = [], currencySymbol, currency_symbol }) {
     const { auth, flash } = usePage().props;
     const isOwner = auth?.user?.role_id === 2;
+    const currency = currencySymbol || currency_symbol || '$';
+
     const [activeTab, setActiveTab] = useState('items'); // 'items' or 'categories'
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [stockFilter, setStockFilter] = useState('All'); // 'All' | 'in_stock' | 'out_of_stock'
     
     // Items Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -149,6 +154,26 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
         }
     };
 
+    // Filter Menu Items and Categories in real-time
+    const filteredMenuItems = menuItems.filter(item => {
+        const categoryMatch = selectedCategory === 'All' || item.category_id == selectedCategory || item.category?.name === selectedCategory;
+        const stockMatch = stockFilter === 'All' || 
+            (stockFilter === 'in_stock' && item.stock_quantity > 0) ||
+            (stockFilter === 'out_of_stock' && item.stock_quantity <= 0);
+        const searchMatch = searchQuery === '' || 
+            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (item.category?.name && item.category.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return categoryMatch && stockMatch && searchMatch;
+    });
+
+    const filteredCategories = categories.filter(cat => {
+        return searchQuery === '' ||
+            cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (cat.description && cat.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    });
+
     return (
         <AdminLayout>
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -174,19 +199,61 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                 </div>
             )}
 
+            {/* Real-time Search & Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-xs border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:w-80">
+                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        type="text"
+                        placeholder={activeTab === 'items' ? "Search menu items..." : "Search categories..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm transition-all"
+                    />
+                </div>
+
+                {activeTab === 'items' && (
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+                            <Filter className="w-4 h-4 text-gray-400 shrink-0" />
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                            >
+                                <option value="All">All Categories</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <select
+                            value={stockFilter}
+                            onChange={(e) => setStockFilter(e.target.value)}
+                            className="w-full sm:w-36 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white flex-1 sm:flex-initial"
+                        >
+                            <option value="All">All Stock</option>
+                            <option value="in_stock">In Stock</option>
+                            <option value="out_of_stock">Out of Stock</option>
+                        </select>
+                    </div>
+                )}
+            </div>
+
             <div className="mb-6 flex gap-2 border-b border-gray-200 pb-px">
                 <button 
                     onClick={() => setActiveTab('items')}
                     className={`px-4 py-2 font-medium text-sm transition-colors relative ${activeTab === 'items' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Menu Items ({menuItems.length})
+                    Menu Items ({filteredMenuItems.length})
                     {activeTab === 'items' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                 </button>
                 <button 
                     onClick={() => setActiveTab('categories')}
                     className={`px-4 py-2 font-medium text-sm transition-colors relative ${activeTab === 'categories' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Categories ({categories.length})
+                    Categories ({filteredCategories.length})
                     {activeTab === 'categories' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                 </button>
             </div>
@@ -216,7 +283,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {activeTab === 'items' && menuItems.map(item => (
+                                {activeTab === 'items' && filteredMenuItems.map(item => (
                                     <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-3">
@@ -231,8 +298,8 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-gray-500">{item.category?.name || 'Uncategorized'}</td>
-                                        <td className="py-4 px-6 font-bold text-primary">${Number(item.price).toFixed(2)}</td>
-                                        <td className="py-4 px-6 font-bold text-orange-600">${Number(item.cost_price || 0).toFixed(2)}</td>
+                                        <td className="py-4 px-6 font-bold text-primary">{currency}{Number(item.price).toFixed(2)}</td>
+                                        <td className="py-4 px-6 font-bold text-orange-600">{currency}{Number(item.cost_price || 0).toFixed(2)}</td>
                                         <td className="py-4 px-6 font-medium text-gray-700">{item.stock_quantity}</td>
                                         <td className="py-4 px-6">
                                             {item.stock_quantity > 0 ? (
@@ -256,7 +323,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                     </tr>
                                 ))}
                                 
-                                {activeTab === 'categories' && categories.map(cat => (
+                                {activeTab === 'categories' && filteredCategories.map(cat => (
                                     <tr key={cat.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="py-4 px-6 font-medium text-gray-900">{cat.name}</td>
                                         <td className="py-4 px-6 text-gray-500">{cat.description || '-'}</td>
@@ -270,11 +337,11 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                     </tr>
                                 ))}
 
-                                {(activeTab === 'items' && menuItems.length === 0) && (
-                                    <tr><td colSpan="7" className="py-12 text-center text-gray-500">No menu items found. Add one to get started.</td></tr>
+                                {(activeTab === 'items' && filteredMenuItems.length === 0) && (
+                                    <tr><td colSpan="7" className="py-12 text-center text-gray-500">No menu items found for this filter.</td></tr>
                                 )}
-                                {(activeTab === 'categories' && categories.length === 0) && (
-                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500">No categories found. Add one to get started.</td></tr>
+                                {(activeTab === 'categories' && filteredCategories.length === 0) && (
+                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500">No categories found for this filter.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -337,7 +404,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ($)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ({currency})</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -352,7 +419,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
 
                                 {!data.is_deal && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ($)</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ({currency})</label>
                                         <input
                                             type="number"
                                             step="0.01"

@@ -23,10 +23,13 @@ class MenuController extends Controller
             ->orderBy('name')
             ->get();
 
+        $restaurant = auth()->user()->restaurant;
+
         return Inertia::render('Menu/Index', [
             'categories' => $categories,
             'menuItems' => $menuItems,
-            'inventory' => $inventory
+            'inventory' => $inventory,
+            'currencySymbol' => $restaurant->currency_symbol ?? 'RS'
         ]);
     }
 

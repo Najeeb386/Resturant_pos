@@ -415,12 +415,17 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
                                     {/* Open Bills Grid - See and continue existing table bills */}
                                     <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <label className="text-xs font-medium text-gray-600">Open Bills (Click to Load)</label>
-                                            <span className="text-[10px] text-emerald-600 font-medium">Tables with running orders</span>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-orange-500 inline-block animate-pulse"></span>
+                                                Select Table / Open Bills
+                                            </label>
+                                            <span className="text-[11px] text-orange-700 font-bold bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                                                {tables.filter(t => openBills[t.id]).length} Active Bill(s)
+                                            </span>
                                         </div>
 
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
                                             {tables.map(table => {
                                                 const bill = openBills[table.id];
                                                 const isOpen = !!bill;
@@ -437,28 +442,38 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                                                 setSelectedTable(table.id);
                                                             }
                                                         }}
-                                                        className={`p-2 rounded-xl border text-left text-xs transition-all ${
+                                                        className={`p-2.5 rounded-xl border text-left transition-all duration-200 shadow-xs relative overflow-hidden ${
                                                             isSelected 
-                                                                ? 'border-primary bg-primary/5 ring-1 ring-primary/30' 
+                                                                ? 'bg-gradient-to-br from-orange-500 to-amber-600 text-white border-orange-600 shadow-md shadow-orange-500/25 ring-2 ring-orange-400 scale-[1.02]' 
                                                                 : isOpen 
-                                                                    ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' 
-                                                                    : 'border-gray-200 hover:bg-gray-50'
+                                                                    ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-xs' 
+                                                                    : 'bg-orange-50 text-orange-950 border-orange-200/80 hover:bg-orange-100 hover:border-orange-300'
                                                         }`}
                                                     >
-                                                        <div className="font-semibold text-gray-800">Table {table.table_number}</div>
-                                                        <div className="text-[10px] text-gray-500 mt-0.5">
-                                                            {table.status === 'occupied' ? 'Occupied' : 'Free'}
+                                                        <div className="flex items-center justify-between">
+                                                            <span className={`font-extrabold text-xs ${isSelected || isOpen ? 'text-white' : 'text-gray-900'}`}>
+                                                                Table {table.table_number}
+                                                            </span>
+                                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-tight ${
+                                                                isSelected || isOpen ? 'bg-white/20 text-white' : 'bg-orange-200/70 text-orange-900'
+                                                            }`}>
+                                                                {isOpen ? 'Open' : table.status === 'occupied' ? 'Occupied' : 'Free'}
+                                                            </span>
                                                         </div>
 
                                                         {isOpen ? (
-                                                            <div className="mt-1">
-                                                                <div className="text-emerald-600 font-bold text-sm">
+                                                            <div className="mt-1.5">
+                                                                <div className={`font-black text-sm ${isSelected || isOpen ? 'text-white' : 'text-orange-800'}`}>
                                                                     {currency}{bill.total.toFixed(2)}
                                                                 </div>
-                                                                <div className="text-[10px] text-emerald-700 font-medium">Open Bill • Tap to load</div>
+                                                                <div className={`text-[10px] font-semibold ${isSelected || isOpen ? 'text-white/90' : 'text-orange-700'}`}>
+                                                                    Tap to load bill
+                                                                </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="text-[10px] text-gray-400 mt-1">No open bill</div>
+                                                            <div className={`text-[10px] mt-1.5 font-medium ${isSelected ? 'text-white/90' : 'text-orange-700/80'}`}>
+                                                                Select table
+                                                            </div>
                                                         )}
                                                     </button>
                                                 );

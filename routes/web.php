@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('staff', \App\Http\Controllers\StaffController::class)->except(['create', 'show', 'edit']);
 
     Route::get('/kitchen', [\App\Http\Controllers\KitchenController::class, 'index'])->name('kitchen.index');
+    Route::get('/kitchen/live-orders', [\App\Http\Controllers\KitchenController::class, 'liveOrders'])->name('kitchen.liveOrders');
     Route::post('/kitchen/{order}/status', [\App\Http\Controllers\KitchenController::class, 'updateStatus'])->name('kitchen.updateStatus');
 
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
