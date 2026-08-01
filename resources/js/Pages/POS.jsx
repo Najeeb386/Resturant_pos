@@ -94,6 +94,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
     const handleCheckout = () => {
         post('/pos/checkout', {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['openBills', 'allDrafts', 'tables', 'flash', 'menuItems'],
             onSuccess: (page) => {
                 setLastOrder({
                     items: [...cart],
@@ -129,6 +132,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
     const handleSaveDraft = () => {
         post('/pos/draft', {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['openBills', 'allDrafts', 'tables', 'flash', 'menuItems'],
             onSuccess: () => {
                 // Clear cart after saving draft
                 setCart([]);

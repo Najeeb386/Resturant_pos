@@ -99,6 +99,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/kitchen', [\App\Http\Controllers\KitchenController::class, 'index'])->name('kitchen.index');
     Route::get('/kitchen/live-orders', [\App\Http\Controllers\KitchenController::class, 'liveOrders'])->name('kitchen.liveOrders');
     Route::post('/kitchen/{order}/status', [\App\Http\Controllers\KitchenController::class, 'updateStatus'])->name('kitchen.updateStatus');
+    Route::post('/kitchen/{order}/confirm-update', [\App\Http\Controllers\KitchenController::class, 'confirmUpdate'])->name('kitchen.confirmUpdate');
 
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
     Route::post('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.updatePaymentStatus');
