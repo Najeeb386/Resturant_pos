@@ -5,6 +5,8 @@ import {
     Store, 
     CreditCard,
     RefreshCw,
+    Receipt,
+    BarChart3,
     LogOut,
     Settings,
     Menu,
@@ -21,6 +23,8 @@ export default function SuperAdminLayout({ children }) {
         { name: 'Tenants (Restaurants)', href: '/admin/restaurants', icon: Store },
         { name: 'Subscriptions', href: '/admin/subscriptions', icon: RefreshCw },
         { name: 'Subscription Plans', href: '/admin/plans', icon: CreditCard },
+        { name: 'Platform Expenses', href: '/admin/expenses', icon: Receipt },
+        { name: 'Financial Reports', href: '/admin/reports', icon: BarChart3 },
         { name: 'Settings', href: '/admin/settings', icon: Settings },
     ];
 

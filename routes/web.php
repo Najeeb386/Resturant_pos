@@ -204,6 +204,15 @@ Route::middleware('auth')->group(function () {
         
         Route::get('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'index']);
         Route::post('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'store']);
+        Route::put('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'update']);
+        Route::delete('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'destroy']);
+
+        Route::get('/expenses', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'index'])->name('admin.expenses.index');
+        Route::post('/expenses', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'store']);
+        Route::put('/expenses/{expense}', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'update']);
+        Route::delete('/expenses/{expense}', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'destroy']);
+
+        Route::get('/reports', [\App\Http\Controllers\SuperAdmin\ReportController::class, 'index'])->name('admin.reports.index');
 
         // Super Admin Settings
         Route::get('/settings', function () {

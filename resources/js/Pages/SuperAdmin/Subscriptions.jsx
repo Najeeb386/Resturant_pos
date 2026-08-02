@@ -16,10 +16,11 @@ import {
     X,
     Layers
 } from 'lucide-react';
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
 import { Dialog } from '@headlessui/react';
 
 export default function Subscriptions({ subscriptions = [], plans = [] }) {
+    const { currencySymbol = '$' } = usePage().props;
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [planFilter, setPlanFilter] = useState('all');
@@ -290,7 +291,7 @@ export default function Subscriptions({ subscriptions = [], plans = [] }) {
                                             {/* Plan & Price Column */}
                                             <td className="py-4 px-6">
                                                 <div className="font-semibold text-slate-800">{sub.plan?.name || 'Standard'}</div>
-                                                <div className="text-xs text-slate-500">${sub.plan?.price || '0.00'} / {sub.plan?.billing_cycle || 'month'}</div>
+                                                <div className="text-xs text-slate-500">{currencySymbol}{sub.plan?.price || '0.00'} / {sub.plan?.billing_cycle || 'month'}</div>
                                             </td>
 
                                             {/* Start Date */}
@@ -319,15 +320,17 @@ export default function Subscriptions({ subscriptions = [], plans = [] }) {
                                             {/* Action Buttons */}
                                             <td className="py-4 px-6 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {/* Renew Button */}
-                                                    <button
-                                                        onClick={() => handleRenew(sub.id)}
-                                                        title="Renew subscription for 1 month"
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
-                                                    >
-                                                        <RefreshCw className="w-3.5 h-3.5" />
-                                                        Renew
-                                                    </button>
+                                                    {/* Renew Button (Only when status is expired) */}
+                                                    {currentStatus === 'expired' && (
+                                                        <button
+                                                            onClick={() => handleRenew(sub.id)}
+                                                            title="Renew subscription for 1 month"
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
+                                                        >
+                                                            <RefreshCw className="w-3.5 h-3.5" />
+                                                            Renew
+                                                        </button>
+                                                    )}
 
                                                     {/* Extend Button */}
                                                     <button

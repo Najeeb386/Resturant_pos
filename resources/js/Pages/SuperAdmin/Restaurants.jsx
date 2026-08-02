@@ -18,10 +18,11 @@ import {
     Phone,
     Mail
 } from 'lucide-react';
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
 import { Dialog } from '@headlessui/react';
 
 export default function Restaurants({ tenants = [], plans = [] }) {
+    const { currencySymbol = '$' } = usePage().props;
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [selectedTenantForView, setSelectedTenantForView] = useState(null);
@@ -255,7 +256,7 @@ export default function Restaurants({ tenants = [], plans = [] }) {
                                                 <div className="text-xs text-slate-400">{tenant.phone || ''}</div>
                                             </td>
                                             <td className="py-4 px-6 text-slate-700 font-medium">{tenant.subscription?.plan?.name || 'None'}</td>
-                                            <td className="py-4 px-6 font-bold text-slate-800">${tenant.subscription?.plan?.price || '0.00'}</td>
+                                            <td className="py-4 px-6 font-bold text-slate-800">{currencySymbol}{tenant.subscription?.plan?.price || '0.00'}</td>
                                             <td className="py-4 px-6 text-sm text-slate-500">{new Date(tenant.created_at).toLocaleDateString()}</td>
                                             <td className="py-4 px-6">
                                                 {currentStatus === 'active' && <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">Active</Badge>}
@@ -452,7 +453,7 @@ export default function Restaurants({ tenants = [], plans = [] }) {
                                         </div>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-500">Price:</span>
-                                            <span className="font-bold text-slate-800">${selectedTenantForView.subscription?.plan?.price || '0.00'}</span>
+                                            <span className="font-bold text-slate-800">{currencySymbol}{selectedTenantForView.subscription?.plan?.price || '0.00'}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-500">Starts:</span>
