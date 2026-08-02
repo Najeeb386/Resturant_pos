@@ -9,7 +9,7 @@ import { useForm, usePage } from '@inertiajs/react';
 export default function Menu({ categories = [], menuItems = [], inventory = [], currencySymbol, currency_symbol }) {
     const { auth, flash } = usePage().props;
     const isOwner = auth?.user?.role_id === 2;
-    const currency = currencySymbol || currency_symbol || '$';
+    const currency = currencySymbol || currency_symbol || auth?.user?.restaurant?.currency_symbol || '$';
 
     const [activeTab, setActiveTab] = useState('items'); // 'items' or 'categories'
     const [searchQuery, setSearchQuery] = useState('');
@@ -19,7 +19,6 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     // Items Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItemId, setEditingItemId] = useState(null);
-    const fileInputRef = useRef(null);
 
     const itemForm = useForm({
         name: '',
@@ -35,7 +34,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
         _method: 'post'
     });
 
-    const { data, setData, post, delete: destroy, reset, clearErrors, errors, processing, progress } = itemForm;
+    const { data, setData, post, delete: destroy, reset, clearErrors, errors } = itemForm;
 
     // Categories Modal
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -60,7 +59,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                 ingredients: item.ingredients ? item.ingredients.map(ing => ({ id: String(ing.id), quantity: ing.pivot.quantity })) : [],
                 dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), quantity: di.pivot.quantity })) : [],
                 image: null,
-                _method: 'post' // We use POST for file uploads even on update
+                _method: 'post'
             });
         } else {
             setEditingItemId(null);
@@ -349,11 +348,11 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                 </CardContent>
             </Card>
 
-            {/* Menu Item Modal */}
+            {/* Menu Item Modal - Fixed Overflow & Dynamic Currency Symbol */}
             {isItemModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden my-8">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto flex flex-col max-h-[85vh]">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
                             <h2 className="text-lg font-bold text-gray-900">
                                 {editingItemId ? 'Edit Menu Item' : 'Add Menu Item'}
                             </h2>
@@ -361,7 +360,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleItemSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleItemSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Item/Deal Name</label>
@@ -477,7 +476,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                                     >
                                                         <option value="">Select Menu Item</option>
                                                         {menuItems.filter(m => !m.is_deal && m.id !== editingItemId).map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name} (${m.price})</option>
+                                                            <option key={m.id} value={m.id}>{m.name} ({currency}{m.price})</option>
                                                         ))}
                                                     </select>
                                                     <input
@@ -568,7 +567,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 </div>
                             </div>
 
-                            <div className="pt-4 flex gap-3">
+                            <div className="pt-4 flex gap-3 shrink-0">
                                 <Button type="button" variant="outline" className="flex-1" onClick={closeItemModal} disabled={itemForm.processing}>
                                     Cancel
                                 </Button>

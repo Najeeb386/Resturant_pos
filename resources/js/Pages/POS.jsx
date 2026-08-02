@@ -49,7 +49,16 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     });
 
     const addToCart = (item) => {
+        if (item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity <= 0) {
+            alert(`${item.name} is Out of Stock!`);
+            return;
+        }
         const existing = cart.find(c => c.id === item.id);
+        const currentQty = existing ? existing.qty : 0;
+        if (item.stock_quantity !== null && item.stock_quantity !== undefined && (currentQty + 1) > item.stock_quantity) {
+            alert(`Cannot add more ${item.name}. Maximum available stock is ${item.stock_quantity}.`);
+            return;
+        }
         if (existing) {
             setCart(cart.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c));
         } else {
@@ -60,7 +69,13 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const updateQty = (id, delta) => {
         setCart(cart.map(c => {
             if (c.id === id) {
+                const menuItem = menuItems.find(m => m.id === id);
+                const maxStock = menuItem?.stock_quantity;
                 const newQty = c.qty + delta;
+                if (delta > 0 && maxStock !== null && maxStock !== undefined && newQty > maxStock) {
+                    alert(`Cannot increase quantity. Maximum available stock is ${maxStock}.`);
+                    return c;
+                }
                 return newQty > 0 ? { ...c, qty: newQty } : null;
             }
             return c;
@@ -289,22 +304,56 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
                     {/* Menu Items Grid */}
                     <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-6">
-                        {filteredMenu.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => addToCart(item)}
-                                className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-primary hover:shadow-md transition-all text-left group flex flex-col items-center text-center relative overflow-hidden"
-                            >
-                                <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                {item.image ? (
-                                    <img src={`/storage/${item.image}`} alt={item.name} className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-full mb-2 sm:mb-3" />
-                                ) : (
-                                    <div className="text-4xl sm:text-5xl mb-2 sm:mb-3">🍽️</div>
-                                )}
-                                <h3 className="font-semibold text-gray-800 line-clamp-2 min-h-[2.2rem] text-xs sm:text-sm">{item.name}</h3>
-                                <p className="text-primary font-bold mt-1 sm:mt-2 text-sm sm:text-base">{currency}{Number(item.price).toFixed(2)}</p>
-                            </button>
-                        ))}
+                        {filteredMenu.map(item => {
+                            const isOutOfStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity <= 0;
+                            const isLowStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity > 0 && item.stock_quantity <= 5;
+
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => !isOutOfStock && addToCart(item)}
+                                    disabled={isOutOfStock}
+                                    className={`p-3 sm:p-4 rounded-2xl shadow-xs border transition-all text-left group flex flex-col items-center text-center relative overflow-hidden ${
+                                        isOutOfStock 
+                                            ? 'bg-gray-100/90 border-gray-200 opacity-65 cursor-not-allowed select-none' 
+                                            : 'bg-white border-gray-100 hover:border-primary hover:shadow-md cursor-pointer'
+                                    }`}
+                                >
+                                    {/* Out of Stock or Stock Count Badge */}
+                                    {isOutOfStock ? (
+                                        <span className="absolute top-2 right-2 bg-red-600 text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs z-10">
+                                            Out of Stock
+                                        </span>
+                                    ) : item.stock_quantity !== null && item.stock_quantity !== undefined && (
+                                        <span className={`absolute top-2 right-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full z-10 ${
+                                            isLowStock ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        }`}>
+                                            Stock: {item.stock_quantity}
+                                        </span>
+                                    )}
+
+                                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    
+                                    {item.image ? (
+                                        <img 
+                                            src={`/storage/${item.image}`} 
+                                            alt={item.name} 
+                                            className={`w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-full mb-2 sm:mb-3 ${isOutOfStock ? 'grayscale opacity-50' : ''}`} 
+                                        />
+                                    ) : (
+                                        <div className={`text-4xl sm:text-5xl mb-2 sm:mb-3 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}>🍽️</div>
+                                    )}
+
+                                    <h3 className={`font-semibold line-clamp-2 min-h-[2.2rem] text-xs sm:text-sm ${isOutOfStock ? 'text-gray-500' : 'text-gray-800'}`}>
+                                        {item.name}
+                                    </h3>
+
+                                    <p className={`font-bold mt-1 sm:mt-2 text-sm sm:text-base ${isOutOfStock ? 'text-gray-400 line-through' : 'text-primary'}`}>
+                                        {currency}{Number(item.price).toFixed(2)}
+                                    </p>
+                                </button>
+                            );
+                        })}
                         {filteredMenu.length === 0 && (
                             <div className="col-span-full py-12 text-center text-gray-500">
                                 No menu items found.

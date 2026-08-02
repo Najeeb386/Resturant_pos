@@ -14,71 +14,116 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $restaurantId = auth()->user()->restaurant_id;
-        $range = $request->query('range', 'today'); // today, week, month, year, all
+        $restaurant = auth()->user()->restaurant;
+        $currencySymbol = $restaurant->currency_symbol ?? '$';
+        
+        $range = $request->query('range', 'today'); // today, week, month, year, all, custom
+        $startDateParam = $request->query('start_date', Carbon::today()->format('Y-m-d'));
+        $endDateParam = $request->query('end_date', Carbon::today()->format('Y-m-d'));
 
-        $queryStart = match($range) {
-            'today' => Carbon::today(),
-            'week' => Carbon::now()->startOfWeek(),
-            'month' => Carbon::now()->startOfMonth(),
-            'year' => Carbon::now()->startOfYear(),
-            default => Carbon::createFromTimestamp(0),
-        };
+        if ($range === 'custom' && $startDateParam && $endDateParam) {
+            $queryStart = Carbon::parse($startDateParam)->startOfDay();
+            $queryEnd = Carbon::parse($endDateParam)->endOfDay();
+        } else {
+            $queryStart = match($range) {
+                'today' => Carbon::today(),
+                'week' => Carbon::now()->startOfWeek(),
+                'month' => Carbon::now()->startOfMonth(),
+                'year' => Carbon::now()->startOfYear(),
+                default => Carbon::createFromTimestamp(0),
+            };
+            $queryEnd = Carbon::now()->endOfDay();
+        }
 
         // Orders Query
-        $orders = Order::where('restaurant_id', $restaurantId)
-            ->where('created_at', '>=', $queryStart)
+        $ordersQuery = Order::where('restaurant_id', $restaurantId)
+            ->whereBetween('created_at', [$queryStart, $queryEnd])
             ->where('payment_status', 'paid');
 
-        $grossSales = (clone $orders)->sum('total');
-        $orderCount = (clone $orders)->count();
-        $cashSales = (clone $orders)->where('notes', 'like', '%Cash%')->sum('total');
-        $cardSales = (clone $orders)->where('notes', 'not like', '%Cash%')->sum('total');
+        $grossSales = (clone $ordersQuery)->sum('total');
+        $orderCount = (clone $ordersQuery)->count();
+        $cashSales = (clone $ordersQuery)->where('notes', 'like', '%Cash%')->sum('total');
+        $cardSales = (clone $ordersQuery)->where('notes', 'like', '%Card%')->sum('total');
+        $qrSales = (clone $ordersQuery)->where('notes', 'like', '%QR%')->sum('total');
 
         // COGS Query (Cost of Goods Sold)
-        // We join order_items to calculate total cost_price * quantity for the paid orders in this range
-        $cogs = OrderItem::whereHas('order', function ($q) use ($restaurantId, $queryStart) {
+        $cogs = OrderItem::whereHas('order', function ($q) use ($restaurantId, $queryStart, $queryEnd) {
             $q->where('restaurant_id', $restaurantId)
-              ->where('created_at', '>=', $queryStart)
+              ->whereBetween('created_at', [$queryStart, $queryEnd])
               ->where('payment_status', 'paid');
         })->selectRaw('SUM(quantity * cost_price) as total_cogs')->value('total_cogs') ?? 0;
 
         // Expenses Query
         $expenses = Expense::where('restaurant_id', $restaurantId)
-            ->where('date', '>=', $queryStart)
+            ->whereBetween('date', [$queryStart, $queryEnd])
             ->sum('amount');
 
         // Net Profit Calculation
         $netProfit = $grossSales - $cogs - $expenses;
 
-        // Item Profitability
-        $itemStats = OrderItem::whereHas('order', function ($q) use ($restaurantId, $queryStart) {
+        // Item Profitability / Product Sales
+        $productSales = OrderItem::whereHas('order', function ($q) use ($restaurantId, $queryStart, $queryEnd) {
                 $q->where('restaurant_id', $restaurantId)
-                  ->where('created_at', '>=', $queryStart)
+                  ->whereBetween('created_at', [$queryStart, $queryEnd])
                   ->where('payment_status', 'paid');
             })
             ->join('menu_items', 'order_items.menu_item_id', '=', 'menu_items.id')
+            ->leftJoin('menu_categories', 'menu_items.category_id', '=', 'menu_categories.id')
             ->selectRaw('
-                menu_items.name, 
+                menu_items.name as name,
+                menu_categories.name as category_name,
                 SUM(order_items.quantity) as total_sold,
                 SUM(order_items.quantity * order_items.price) as revenue,
                 SUM(order_items.quantity * order_items.cost_price) as cost
             ')
-            ->groupBy('menu_items.id', 'menu_items.name')
+            ->groupBy('menu_items.id', 'menu_items.name', 'menu_categories.name')
             ->orderByDesc('revenue')
-            ->limit(10)
             ->get()
             ->map(function ($item) {
-                $item->profit = $item->revenue - $item->cost;
-                $item->margin = $item->revenue > 0 ? round(($item->profit / $item->revenue) * 100, 2) : 0;
-                return $item;
+                $revenue = (float) $item->revenue;
+                $cost = (float) $item->cost;
+                $profit = $revenue - $cost;
+                $margin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
+                return [
+                    'name' => $item->name,
+                    'category' => $item->category_name ?? 'Uncategorized',
+                    'total_sold' => (int) $item->total_sold,
+                    'revenue' => round($revenue, 2),
+                    'cost' => round($cost, 2),
+                    'profit' => round($profit, 2),
+                    'margin' => $margin
+                ];
             });
 
-        $settings = \DB::table('platform_settings')->first() ?? (object) ['currency_symbol' => '$'];
+        // Delivery Charges Report Data
+        $deliveryOrdersQuery = Order::where('restaurant_id', $restaurantId)
+            ->where('order_type', 'delivery')
+            ->whereBetween('created_at', [$queryStart, $queryEnd]);
+
+        $totalDeliveredOrders = (clone $deliveryOrdersQuery)->count();
+        $collectedDeliveryCharges = (clone $deliveryOrdersQuery)->sum('delivery_fee');
+
+        $deliveryOrders = (clone $deliveryOrdersQuery)
+            ->select('id', 'customer_name', 'customer_phone', 'delivery_address', 'delivery_fee', 'total', 'payment_status', 'created_at')
+            ->latest()
+            ->get()
+            ->map(fn($o) => [
+                'id' => $o->id,
+                'customer_name' => $o->customer_name ?? 'Walk-in / N/A',
+                'customer_phone' => $o->customer_phone ?? 'N/A',
+                'delivery_address' => $o->delivery_address ?? 'N/A',
+                'delivery_fee' => (float) $o->delivery_fee,
+                'total' => (float) $o->total,
+                'payment_status' => $o->payment_status,
+                'date' => $o->created_at->format('M d, Y h:i A'),
+            ]);
 
         return Inertia::render('Reports/Index', [
             'range' => $range,
-            'currencySymbol' => $settings->currency_symbol,
-            'summary' => [
+            'startDate' => $startDateParam,
+            'endDate' => $endDateParam,
+            'currencySymbol' => $currencySymbol,
+            'cashFlowSummary' => [
                 'grossSales' => round($grossSales, 2),
                 'cogs' => round($cogs, 2),
                 'expenses' => round($expenses, 2),
@@ -86,8 +131,14 @@ class ReportController extends Controller
                 'orderCount' => $orderCount,
                 'cashSales' => round($cashSales, 2),
                 'cardSales' => round($cardSales, 2),
+                'qrSales' => round($qrSales, 2),
             ],
-            'itemStats' => $itemStats,
+            'productSales' => $productSales,
+            'deliverySummary' => [
+                'totalDeliveredOrders' => $totalDeliveredOrders,
+                'collectedDeliveryCharges' => round($collectedDeliveryCharges, 2),
+                'orders' => $deliveryOrders
+            ]
         ]);
     }
 }

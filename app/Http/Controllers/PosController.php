@@ -127,6 +127,10 @@ class PosController extends Controller
                 ->get()
                 ->keyBy('id');
 
+            $restaurant = auth()->user()->restaurant;
+            $kitchenBypass = (bool) ($restaurant->kitchen_bypass ?? false);
+            $targetStatus = $kitchenBypass ? 'completed' : 'pending';
+
             $order = null;
             if ($request->order_id) {
                 $order = Order::where('restaurant_id', $restaurantId)->with('orderItems')->find($request->order_id);
@@ -168,7 +172,7 @@ class PosController extends Controller
                     'delivery_address' => $request->delivery_address,
                     'delivery_fee' => $request->delivery_fee ?? 0,
                     'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
-                    'status' => 'completed',
+                    'status' => $targetStatus,
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'total' => $request->total,
@@ -185,7 +189,7 @@ class PosController extends Controller
                     'delivery_address' => $request->delivery_address,
                     'delivery_fee' => $request->delivery_fee ?? 0,
                     'payment_status' => $request->payment_method === 'Cash on Delivery' ? 'unpaid' : 'paid',
-                    'status' => 'completed',
+                    'status' => $targetStatus,
                     'subtotal' => $request->subtotal,
                     'tax' => $request->tax,
                     'discount' => 0,
