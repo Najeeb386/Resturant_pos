@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Menu, X, LogOut, LayoutDashboard, ShoppingBag, Utensils, Table, ChefHat, Package, BookOpen, Receipt, BarChart3, Users, Settings, Lock, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, ShoppingBag, Utensils, Table, ChefHat, Package, BookOpen, Receipt, BarChart3, Users, Settings, Lock, AlertTriangle, ArrowRight, Mail } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
     const { auth, tenantSubscription } = usePage().props;
@@ -164,7 +164,45 @@ export default function AdminLayout({ children }) {
 
                 {/* Page Content */}
                 <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
-                    {isCurrentPageAllowed ? (
+                    {subStatus !== 'active' && !isSuperAdmin ? (
+                        <div className="max-w-2xl mx-auto my-12 bg-white border border-rose-200 rounded-3xl p-8 sm:p-10 shadow-xl text-center">
+                            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xs">
+                                <AlertTriangle className="w-8 h-8" />
+                            </div>
+                            
+                            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-3">
+                                Subscription Expired
+                            </h2>
+                            
+                            <p className="text-slate-600 text-base mb-6 leading-relaxed max-w-md mx-auto">
+                                Your subscription has expired. For getting access kindly renew your subscription.
+                            </p>
+
+                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left max-w-md mx-auto mb-6">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                    SaaS Administrator Contact Details
+                                </h4>
+                                <div className="flex items-center gap-3 text-sm text-slate-800 font-semibold mb-1">
+                                    <Mail className="w-4 h-4 text-blue-600" />
+                                    <span>admin@dinedesk.com</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Please contact the administrator to renew or extend your restaurant subscription plan.
+                                </p>
+                            </div>
+
+                            <div className="flex justify-center gap-3">
+                                <Link
+                                    href="/logout"
+                                    method="post"
+                                    as="button"
+                                    className="px-6 py-2.5 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm"
+                                >
+                                    Log Out
+                                </Link>
+                            </div>
+                        </div>
+                    ) : isCurrentPageAllowed ? (
                         children
                     ) : (
                         <div className="max-w-2xl mx-auto my-12 bg-white border border-amber-200 rounded-3xl p-8 shadow-xl text-center">
@@ -172,13 +210,10 @@ export default function AdminLayout({ children }) {
                                 <Lock className="w-8 h-8" />
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                                {subStatus !== 'active' ? 'Subscription Inactive or Expired' : 'Feature Not Included in Your Plan'}
+                                Feature Not Included in Your Plan
                             </h2>
                             <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                                {subStatus !== 'active' 
-                                    ? 'Your restaurant subscription has expired or is currently inactive. Please renew your subscription to access this module.'
-                                    : `The module "${currentNavItem?.name || 'Feature'}" is not enabled under your current plan (${tenantSubscription?.plan_name || 'Standard'}). Please contact the SaaS Administrator to upgrade your plan.`
-                                }
+                                The module "{currentNavItem?.name || 'Feature'}" is not enabled under your current plan ({tenantSubscription?.plan_name || 'Standard'}). Please contact the SaaS Administrator to upgrade your plan.
                             </p>
                             <div className="flex justify-center gap-4">
                                 <Link 

@@ -84,6 +84,24 @@ class AppServiceProvider extends ServiceProvider
                 $settings = \DB::table('platform_settings')->first();
                 return $settings?->currency_symbol ?? '$';
             },
+            'errors' => function () {
+                $sessionErrors = session()->get('errors');
+                if (!$sessionErrors) {
+                    return (object) [];
+                }
+                $messages = $sessionErrors->getBag('default')->getMessages();
+                $formatted = [];
+                foreach ($messages as $key => $msgs) {
+                    $formatted[$key] = is_array($msgs) ? $msgs[0] : $msgs;
+                }
+                return (object) $formatted;
+            },
+            'flash' => function () {
+                return [
+                    'success' => session()->get('success'),
+                    'error' => session()->get('error'),
+                ];
+            },
         ]);
     }
 }
