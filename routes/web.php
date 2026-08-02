@@ -194,6 +194,13 @@ Route::middleware('auth')->group(function () {
         
         Route::get('/restaurants', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'index']);
         Route::post('/restaurants', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'store']);
+        Route::put('/restaurants/{restaurant}', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'update']);
+        Route::delete('/restaurants/{restaurant}', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'destroy']);
+
+        Route::get('/subscriptions', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
+        Route::post('/subscriptions/{subscription}/renew', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'renew'])->name('admin.subscriptions.renew');
+        Route::post('/subscriptions/{subscription}/extend', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'extend'])->name('admin.subscriptions.extend');
+        Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
         
         Route::get('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'index']);
         Route::post('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'store']);

@@ -4,6 +4,7 @@ import {
     LayoutDashboard, 
     Store, 
     CreditCard,
+    RefreshCw,
     LogOut,
     Settings,
     Menu,
@@ -18,6 +19,7 @@ export default function SuperAdminLayout({ children }) {
     const navigation = [
         { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
         { name: 'Tenants (Restaurants)', href: '/admin/restaurants', icon: Store },
+        { name: 'Subscriptions', href: '/admin/subscriptions', icon: RefreshCw },
         { name: 'Subscription Plans', href: '/admin/plans', icon: CreditCard },
         { name: 'Settings', href: '/admin/settings', icon: Settings },
     ];

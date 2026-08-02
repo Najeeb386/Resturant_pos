@@ -65,4 +65,52 @@ class RestaurantController extends Controller
 
         return back()->with('success', 'Tenant registered successfully');
     }
+
+    public function update(Request $request, Restaurant $restaurant)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:restaurants,email,' . $restaurant->id,
+            'phone' => 'nullable|string',
+            'plan_id' => 'nullable|exists:subscription_plans,id',
+            'status' => 'nullable|string|in:active,expired,cancelled,no_sub',
+        ]);
+
+        $restaurant->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+        ]);
+
+        if (!empty($validated['plan_id'])) {
+            $sub = Subscription::where('restaurant_id', $restaurant->id)->first();
+            if ($sub) {
+                $sub->update([
+                    'subscription_plan_id' => $validated['plan_id'],
+                    'status' => $validated['status'] ?? $sub->status,
+                ]);
+            } else {
+                Subscription::create([
+                    'restaurant_id' => $restaurant->id,
+                    'subscription_plan_id' => $validated['plan_id'],
+                    'status' => $validated['status'] ?? 'active',
+                    'starts_at' => now(),
+                    'ends_at' => now()->addMonth(),
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Restaurant updated successfully');
+    }
+
+    public function destroy(Restaurant $restaurant)
+    {
+        \DB::transaction(function () use ($restaurant) {
+            Subscription::where('restaurant_id', $restaurant->id)->delete();
+            User::where('restaurant_id', $restaurant->id)->delete();
+            $restaurant->delete();
+        });
+
+        return back()->with('success', 'Restaurant deleted successfully');
+    }
 }
