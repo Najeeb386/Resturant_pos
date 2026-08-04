@@ -34,3 +34,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kitchen/orders', [KitchenController::class, 'getOrders']);
     Route::patch('/kitchen/orders/{orderId}/items/{itemId}', [KitchenController::class, 'updateOrderItemStatus']);
 });
+
+// DineDesk Flutter Mobile App API Routes
+Route::prefix('v1')->group(function () {
+    Route::post('/login', [\App\Http\Controllers\API\MobileSyncController::class, 'login']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/bootstrap', [\App\Http\Controllers\API\MobileSyncController::class, 'bootstrap']);
+        Route::post('/sync/orders', [\App\Http\Controllers\API\MobileSyncController::class, 'syncOrders']);
+    });
+});
