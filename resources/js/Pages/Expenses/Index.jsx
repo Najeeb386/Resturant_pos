@@ -3,6 +3,7 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { useForm } from '@inertiajs/react';
 import { Plus, Edit2, Trash2, Receipt, Search, Filter } from 'lucide-react';
+import { SwalConfirm, SwalToast } from '../../Utils/swal';
 
 export default function ExpensesIndex({ expenses, currencySymbol = 'RS' }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,19 +59,34 @@ export default function ExpensesIndex({ expenses, currencySymbol = 'RS' }) {
         e.preventDefault();
         if (editingId) {
             put(`/expenses/${editingId}`, {
-                onSuccess: () => closeModal()
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Expense updated');
+                }
             });
         } else {
             post('/expenses', {
-                onSuccess: () => closeModal()
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Expense logged');
+                }
             });
         }
     };
 
     const handleDelete = (id) => {
-        if (confirm('Are you sure you want to delete this expense?')) {
-            destroy(`/expenses/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Expense?',
+            text: 'Are you sure you want to delete this expense?',
+            confirmButtonText: 'Yes, delete expense',
+            confirmButtonColor: '#ef4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/expenses/${id}`, {
+                    onSuccess: () => SwalToast('Expense deleted')
+                });
+            }
+        });
     };
 
     // Real-time Filtering

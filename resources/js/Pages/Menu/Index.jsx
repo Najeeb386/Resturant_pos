@@ -3,8 +3,9 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Badge } from '../../Components/ui/Badge';
 import { Button } from '../../Components/ui/Button';
-import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon, Search, Filter } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon, Search, Filter, Layers } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
+import { SwalConfirm, SwalAlert, SwalToast } from '../../Utils/swal';
 
 export default function Menu({ categories = [], menuItems = [], inventory = [], currencySymbol, currency_symbol }) {
     const { auth, flash } = usePage().props;
@@ -28,6 +29,8 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
         stock_quantity: 0,
         description: '',
         is_deal: false,
+        has_variants: false,
+        variants: [],
         ingredients: [],
         dealItems: [],
         image: null,
@@ -48,6 +51,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
         clearErrors();
         if (item) {
             setEditingItemId(item.id);
+            const hasVar = Boolean(item.variants && item.variants.length > 0);
             setData({
                 name: item.name,
                 category_id: item.category_id,
@@ -56,6 +60,8 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                 stock_quantity: item.stock_quantity,
                 description: item.description || '',
                 is_deal: Boolean(item.is_deal),
+                has_variants: hasVar,
+                variants: hasVar ? item.variants.map(v => ({ name: v.name, price: v.price, cost_price: v.cost_price || '' })) : [],
                 ingredients: item.ingredients ? item.ingredients.map(ing => ({ id: String(ing.id), quantity: ing.pivot.quantity })) : [],
                 dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), quantity: di.pivot.quantity })) : [],
                 image: null,
@@ -78,23 +84,63 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
 
     const handleItemSubmit = (e) => {
         e.preventDefault();
+
+        if (data.has_variants && data.variants.length === 0) {
+            SwalAlert({ title: 'No Sizes Added', text: 'Please add at least one size/variant or uncheck "Multiple Sizes".', icon: 'warning' });
+            return;
+        }
+
         if (editingItemId) {
             post(`/menu/item/${editingItemId}`, {
-                onSuccess: () => closeItemModal()
+                onSuccess: () => {
+                    closeItemModal();
+                    SwalToast('Menu item updated successfully');
+                }
             });
         } else {
             post('/menu/item', {
-                onSuccess: () => closeItemModal()
+                onSuccess: () => {
+                    closeItemModal();
+                    SwalToast('Menu item added successfully');
+                }
             });
         }
     };
 
     const handleDeleteItem = (id) => {
-        if (confirm('Are you sure you want to delete this menu item?')) {
-            destroy(`/menu/item/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Menu Item?',
+            text: 'Are you sure you want to delete this menu item?',
+            icon: 'warning',
+            confirmButtonText: 'Yes, delete it',
+            confirmButtonColor: '#ef4444',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/menu/item/${id}`, {
+                    onSuccess: () => SwalToast('Menu item deleted')
+                });
+            }
+        });
     };
 
+    // Variant Handlers
+    const addVariant = () => {
+        setData('variants', [...data.variants, { name: '', price: '', cost_price: '' }]);
+    };
+
+    const removeVariant = (index) => {
+        const newVariants = [...data.variants];
+        newVariants.splice(index, 1);
+        setData('variants', newVariants);
+    };
+
+    const updateVariant = (index, field, value) => {
+        const newVariants = [...data.variants];
+        newVariants[index][field] = value;
+        setData('variants', newVariants);
+    };
+
+    // Ingredient Handlers
     const addIngredient = () => {
         setData('ingredients', [...data.ingredients, { id: '', quantity: '' }]);
     };
@@ -111,6 +157,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
         setData('ingredients', newIngredients);
     };
 
+    // Deal Item Handlers
     const addDealItem = () => {
         setData('dealItems', [...data.dealItems, { id: '', quantity: 1 }]);
     };
@@ -143,14 +190,27 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     const handleCategorySubmit = (e) => {
         e.preventDefault();
         categoryForm.post('/menu/category', {
-            onSuccess: () => closeCategoryModal()
+            onSuccess: () => {
+                closeCategoryModal();
+                SwalToast('Category saved successfully');
+            }
         });
     };
 
     const handleDeleteCategory = (id) => {
-        if (confirm('Are you sure you want to delete this category? All items in it will also be deleted!')) {
-            categoryForm.delete(`/menu/category/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Category?',
+            text: 'Are you sure you want to delete this category? All items in it will also be deleted!',
+            icon: 'warning',
+            confirmButtonText: 'Yes, delete category',
+            confirmButtonColor: '#ef4444',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                categoryForm.delete(`/menu/category/${id}`, {
+                    onSuccess: () => SwalToast('Category deleted')
+                });
+            }
+        });
     };
 
     // Filter Menu Items and Categories in real-time
@@ -178,7 +238,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Menu Management</h1>
-                    <p className="text-gray-500">Manage your menu items, categories, and stock quantities.</p>
+                    <p className="text-gray-500">Manage your menu items, custom sizes/variants, categories, and stock.</p>
                 </div>
                 {isOwner && (
                     <div className="flex gap-2 w-full sm:w-auto">
@@ -267,7 +327,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                         <>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Item Name</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Category</th>
-                                            <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Sale Price</th>
+                                            <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Sale Price / Sizes</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Cost Price</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Stock</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Status</th>
@@ -282,45 +342,67 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {activeTab === 'items' && filteredMenuItems.map(item => (
-                                    <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="py-4 px-6">
-                                            <div className="flex items-center gap-3">
-                                                {item.image ? (
-                                                    <img src={`/storage/${item.image}`} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                                                        <ImageIcon className="w-5 h-5" />
+                                {activeTab === 'items' && filteredMenuItems.map(item => {
+                                    const hasVars = item.variants && item.variants.length > 0;
+                                    const minPrice = hasVars ? Math.min(...item.variants.map(v => Number(v.price))) : Number(item.price);
+                                    const maxPrice = hasVars ? Math.max(...item.variants.map(v => Number(v.price))) : Number(item.price);
+
+                                    return (
+                                        <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    {item.image ? (
+                                                        <img src={`/storage/${item.image}`} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                                            <ImageIcon className="w-5 h-5" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">{item.name}</div>
+                                                        {hasVars && (
+                                                            <div className="text-xs text-purple-600 font-semibold flex items-center gap-1 mt-0.5">
+                                                                <Layers className="w-3 h-3" /> {item.variants.map(v => v.name).join(', ')}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <span className="font-medium text-gray-900">{item.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6 text-gray-500">{item.category?.name || 'Uncategorized'}</td>
-                                        <td className="py-4 px-6 font-bold text-primary">{currency}{Number(item.price).toFixed(2)}</td>
-                                        <td className="py-4 px-6 font-bold text-orange-600">{currency}{Number(item.cost_price || 0).toFixed(2)}</td>
-                                        <td className="py-4 px-6 font-medium text-gray-700">{item.stock_quantity}</td>
-                                        <td className="py-4 px-6">
-                                            {item.stock_quantity > 0 ? (
-                                                <Badge variant="success">Available</Badge>
-                                            ) : (
-                                                <Badge variant="danger">Out of Stock</Badge>
-                                            )}
-                                        </td>
-                                        {isOwner && (
-                                            <td className="py-4 px-6 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="outline" size="sm" className="p-2" onClick={() => openItemModal(item)}>
-                                                        <Edit2 className="w-4 h-4 text-gray-600" />
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" className="p-2 border-red-200 hover:bg-red-50" onClick={() => handleDeleteItem(item.id)}>
-                                                        <Trash2 className="w-4 h-4 text-red-500" />
-                                                    </Button>
                                                 </div>
                                             </td>
-                                        )}
-                                    </tr>
-                                ))}
+                                            <td className="py-4 px-6 text-gray-500">{item.category?.name || 'Uncategorized'}</td>
+                                            <td className="py-4 px-6 font-bold text-primary">
+                                                {hasVars ? (
+                                                    <div>
+                                                        <span>{currency}{minPrice.toFixed(2)} - {currency}{maxPrice.toFixed(2)}</span>
+                                                        <span className="block text-[10px] text-purple-600 font-medium">({item.variants.length} Sizes)</span>
+                                                    </div>
+                                                ) : (
+                                                    <span>{currency}{Number(item.price).toFixed(2)}</span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-6 font-bold text-orange-600">{currency}{Number(item.cost_price || 0).toFixed(2)}</td>
+                                            <td className="py-4 px-6 font-medium text-gray-700">{item.stock_quantity}</td>
+                                            <td className="py-4 px-6">
+                                                {item.stock_quantity > 0 ? (
+                                                    <Badge variant="success">Available</Badge>
+                                                ) : (
+                                                    <Badge variant="danger">Out of Stock</Badge>
+                                                )}
+                                            </td>
+                                            {isOwner && (
+                                                <td className="py-4 px-6 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="outline" size="sm" className="p-2" onClick={() => openItemModal(item)}>
+                                                            <Edit2 className="w-4 h-4 text-gray-600" />
+                                                        </Button>
+                                                        <Button variant="outline" size="sm" className="p-2 border-red-200 hover:bg-red-50" onClick={() => handleDeleteItem(item.id)}>
+                                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
                                 
                                 {activeTab === 'categories' && filteredCategories.map(cat => (
                                     <tr key={cat.id} className="hover:bg-gray-50/50 transition-colors">
@@ -348,7 +430,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                 </CardContent>
             </Card>
 
-            {/* Menu Item Modal - Fixed Overflow & Dynamic Currency Symbol */}
+            {/* Menu Item Modal */}
             {isItemModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
                     <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto flex flex-col max-h-[85vh]">
@@ -375,18 +457,6 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 </div>
 
                                 <div className="col-span-2">
-                                    <label className="flex items-center space-x-2 cursor-pointer bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                        <input
-                                            type="checkbox"
-                                            checked={data.is_deal}
-                                            onChange={e => setData('is_deal', e.target.checked)}
-                                            className="w-4 h-4 text-primary rounded focus:ring-primary"
-                                        />
-                                        <span className="text-sm font-medium text-blue-900">This is a Combo / Deal</span>
-                                    </label>
-                                </div>
-
-                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                                     <select
                                         value={data.category_id}
@@ -402,34 +472,142 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                     {errors.category_id && <p className="text-red-500 text-xs mt-1">{errors.category_id}</p>}
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ({currency})</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={data.price}
-                                        onChange={e => setData('price', e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                        required
-                                    />
-                                    {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                                <div className="col-span-2 flex flex-col sm:flex-row gap-2">
+                                    <label className="flex-1 flex items-center space-x-2 cursor-pointer bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.is_deal}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setData(d => ({
+                                                    ...d,
+                                                    is_deal: checked,
+                                                    has_variants: checked ? false : d.has_variants
+                                                }));
+                                            }}
+                                            className="w-4 h-4 text-primary rounded focus:ring-primary"
+                                        />
+                                        <span className="text-sm font-medium text-blue-900">Combo / Deal</span>
+                                    </label>
+
+                                    {!data.is_deal && (
+                                        <label className="flex-1 flex items-center space-x-2 cursor-pointer bg-purple-50 p-3 rounded-xl border border-purple-100">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.has_variants}
+                                                onChange={e => {
+                                                    const checked = e.target.checked;
+                                                    setData(d => ({
+                                                        ...d,
+                                                        has_variants: checked,
+                                                        variants: checked && d.variants.length === 0 ? [
+                                                            { name: 'Small', price: d.price || '', cost_price: d.cost_price || '' },
+                                                            { name: 'Medium', price: '', cost_price: '' },
+                                                            { name: 'Large', price: '', cost_price: '' }
+                                                        ] : d.variants
+                                                    }));
+                                                }}
+                                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm font-medium text-purple-900">Multiple Sizes / Variants</span>
+                                        </label>
+                                    )}
                                 </div>
 
-                                {!data.is_deal && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ({currency})</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={data.cost_price}
-                                            onChange={e => setData('cost_price', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
-                                            required={!data.is_deal}
-                                        />
-                                        {errors.cost_price && <p className="text-red-500 text-xs mt-1">{errors.cost_price}</p>}
+                                {/* Sizes / Variants Section */}
+                                {data.has_variants && !data.is_deal ? (
+                                    <div className="col-span-2 bg-purple-50/50 p-3.5 rounded-2xl border border-purple-100 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <label className="block text-sm font-bold text-purple-900">Configure Sizes / Variants</label>
+                                                <p className="text-xs text-purple-600">User defined size names (e.g. Small, Medium, Large, 1 Liter, Half, Full)</p>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={addVariant} 
+                                                className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 font-medium shadow-2xs"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Add Size
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {data.variants.map((variant, index) => (
+                                                <div key={index} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Size Name (e.g. Small)"
+                                                        value={variant.name}
+                                                        onChange={e => updateVariant(index, 'name', e.target.value)}
+                                                        className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        required
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder={`Price (${currency})`}
+                                                        value={variant.price}
+                                                        onChange={e => updateVariant(index, 'price', e.target.value)}
+                                                        className="w-24 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        required
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder={`Cost (${currency})`}
+                                                        value={variant.cost_price}
+                                                        onChange={e => updateVariant(index, 'cost_price', e.target.value)}
+                                                        className="w-24 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                    />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeVariant(index)} 
+                                                        className="p-1 text-red-500 hover:bg-red-50 rounded-md"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {data.variants.length === 0 && (
+                                                <div className="text-center py-3 text-xs text-purple-600 bg-white border border-dashed border-purple-200 rounded-xl">
+                                                    No sizes defined. Click "+ Add Size" above.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ({currency})</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={data.price}
+                                                onChange={e => setData('price', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                                required={!data.has_variants}
+                                            />
+                                            {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                                        </div>
+
+                                        {!data.is_deal && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ({currency})</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={data.cost_price}
+                                                    onChange={e => setData('cost_price', e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                                                />
+                                                {errors.cost_price && <p className="text-red-500 text-xs mt-1">{errors.cost_price}</p>}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 <div>
@@ -463,7 +641,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                                 <Plus className="w-3 h-3" /> Add Item
                                             </button>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-3">Select the menu items included in this deal. The system will automatically calculate the total cost price.</p>
+                                        <p className="text-xs text-gray-500 mb-3">Select the menu items included in this deal.</p>
                                         
                                         <div className="space-y-2">
                                             {data.dealItems.map((di, index) => (

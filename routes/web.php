@@ -102,6 +102,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/kitchen/{order}/confirm-update', [\App\Http\Controllers\KitchenController::class, 'confirmUpdate'])->name('kitchen.confirmUpdate');
 
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::put('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
     Route::post('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.updatePaymentStatus');
     Route::post('/orders/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::get('/orders/{order}/receipt', [\App\Http\Controllers\OrderController::class, 'printReceipt'])->name('orders.printReceipt');

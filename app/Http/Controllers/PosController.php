@@ -19,7 +19,7 @@ class PosController extends Controller
         $restaurant = auth()->user()->restaurant;
         
         $categories = MenuCategory::where('restaurant_id', $restaurantId)->get();
-        $menuItems = MenuItem::where('restaurant_id', $restaurantId)->get();
+        $menuItems = MenuItem::with('variants')->where('restaurant_id', $restaurantId)->get();
         $tables = Table::where('restaurant_id', $restaurantId)->get();
 
         // Open running bills per table (where unpaid and not completed)

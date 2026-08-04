@@ -5,6 +5,7 @@ import { Badge } from '../Components/ui/Badge';
 import { Button } from '../Components/ui/Button';
 import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
+import { SwalConfirm, SwalToast } from '../Utils/swal';
 
 export default function Tables({ tables = [] }) {
     const { auth } = usePage().props;
@@ -45,20 +46,35 @@ export default function Tables({ tables = [] }) {
         e.preventDefault();
         if (editingId) {
             put(`/tables/${editingId}`, {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Table updated');
+                },
             });
         } else {
             post('/tables', {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Table added');
+                },
             });
         }
     };
 
     const handleDelete = (id, e) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this table?')) {
-            destroy(`/tables/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Table?',
+            text: 'Are you sure you want to delete this table?',
+            confirmButtonText: 'Yes, delete table',
+            confirmButtonColor: '#ef4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/tables/${id}`, {
+                    onSuccess: () => SwalToast('Table deleted')
+                });
+            }
+        });
     };
 
     return (

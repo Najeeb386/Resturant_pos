@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../Layouts/AdminLayout';
 import { Card, CardContent } from '../Components/ui/Card';
 import { Button } from '../Components/ui/Button';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X, Loader2 } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, Printer, X, Loader2, Layers } from 'lucide-react';
 import { useForm, router, usePage } from '@inertiajs/react';
+import { SwalAlert, SwalToast } from '../Utils/swal';
 
 export default function POS({ categories = [], menuItems = [], tables = [], restaurant = {}, openBills = {}, flash = {}, allDrafts = [] }) {
     const { auth } = usePage().props;
@@ -24,6 +25,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [showDraftsModal, setShowDraftsModal] = useState(false);
     const [mobileTab, setMobileTab] = useState('menu'); // 'menu' | 'cart'
 
+    // Size / Variant Picker Modal State
+    const [sizeModalItem, setSizeModalItem] = useState(null);
+
     const { data, setData, post, processing, reset } = useForm({
         order_id: null,
         table_id: '',
@@ -39,7 +43,6 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         payment_method: 'Cash'
     });
 
-    // Extract unique categories from menu items if no categories provided explicitly
     const displayCategories = ['All', ...categories.map(c => c.name)];
 
     const filteredMenu = menuItems.filter(item => {
@@ -48,32 +51,70 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         return categoryMatch && searchMatch;
     });
 
-    const addToCart = (item) => {
+    const handleProductClick = (item) => {
         if (item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity <= 0) {
-            alert(`${item.name} is Out of Stock!`);
+            SwalAlert({ title: 'Out of Stock', text: `${item.name} is currently out of stock!`, icon: 'error' });
             return;
         }
-        const existing = cart.find(c => c.id === item.id);
+
+        if (item.variants && item.variants.length > 0) {
+            setSizeModalItem(item);
+        } else {
+            addToCart(item);
+        }
+    };
+
+    const addToCart = (item) => {
+        const existing = cart.find(c => c.id === item.id && !c.variant_id);
         const currentQty = existing ? existing.qty : 0;
         if (item.stock_quantity !== null && item.stock_quantity !== undefined && (currentQty + 1) > item.stock_quantity) {
-            alert(`Cannot add more ${item.name}. Maximum available stock is ${item.stock_quantity}.`);
+            SwalAlert({ title: 'Stock Limit Reached', text: `Cannot add more ${item.name}. Maximum available stock is ${item.stock_quantity}.`, icon: 'warning' });
             return;
         }
         if (existing) {
-            setCart(cart.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c));
+            setCart(cart.map(c => (c.id === item.id && !c.variant_id) ? { ...c, qty: c.qty + 1 } : c));
         } else {
             setCart([...cart, { ...item, qty: 1 }]);
         }
     };
 
-    const updateQty = (id, delta) => {
+    const addVariantToCart = (item, variant) => {
+        const cartKey = `${item.id}-${variant.id}`;
+        const variantItemName = `${item.name} (${variant.name})`;
+        const variantPrice = Number(variant.price);
+
+        const existing = cart.find(c => c.cart_key === cartKey || (c.id === item.id && c.variant_id === variant.id));
+        const currentQty = existing ? existing.qty : 0;
+
+        if (item.stock_quantity !== null && item.stock_quantity !== undefined && (currentQty + 1) > item.stock_quantity) {
+            SwalAlert({ title: 'Stock Limit Reached', text: `Cannot add more ${variantItemName}. Maximum available stock is ${item.stock_quantity}.`, icon: 'warning' });
+            return;
+        }
+
+        if (existing) {
+            setCart(cart.map(c => (c.cart_key === cartKey || (c.id === item.id && c.variant_id === variant.id)) ? { ...c, qty: c.qty + 1 } : c));
+        } else {
+            setCart([...cart, {
+                id: item.id,
+                variant_id: variant.id,
+                cart_key: cartKey,
+                name: variantItemName,
+                price: variantPrice,
+                qty: 1
+            }]);
+        }
+        setSizeModalItem(null);
+    };
+
+    const updateQty = (keyOrId, delta) => {
         setCart(cart.map(c => {
-            if (c.id === id) {
-                const menuItem = menuItems.find(m => m.id === id);
+            const isMatch = c.cart_key ? (c.cart_key === keyOrId) : (c.id === keyOrId);
+            if (isMatch) {
+                const menuItem = menuItems.find(m => m.id === c.id);
                 const maxStock = menuItem?.stock_quantity;
                 const newQty = c.qty + delta;
                 if (delta > 0 && maxStock !== null && maxStock !== undefined && newQty > maxStock) {
-                    alert(`Cannot increase quantity. Maximum available stock is ${maxStock}.`);
+                    SwalAlert({ title: 'Stock Limit Reached', text: `Cannot increase quantity. Maximum available stock is ${maxStock}.`, icon: 'warning' });
                     return c;
                 }
                 return newQty > 0 ? { ...c, qty: newQty } : null;
@@ -137,10 +178,11 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setCurrentOrderId(null);
                 setShowReceipt(true);
                 reset();
+                SwalToast('Order completed successfully!');
             },
             onError: (errors) => {
                 console.error("Checkout Validation Errors:", errors);
-                alert("Validation failed: " + Object.values(errors).join(', '));
+                SwalAlert({ title: 'Validation Failed', text: Object.values(errors).join(', '), icon: 'error' });
             }
         });
     };
@@ -151,7 +193,6 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
             preserveState: true,
             only: ['openBills', 'allDrafts', 'tables', 'flash', 'menuItems'],
             onSuccess: () => {
-                // Clear cart after saving draft
                 setCart([]);
                 setSelectedTable('');
                 setCustomerName('');
@@ -161,15 +202,15 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setOrderType('takeaway');
                 setCurrentOrderId(null);
                 reset();
+                SwalToast('Draft saved successfully');
             },
             onError: (errors) => {
                 console.error("Draft Validation Errors:", errors);
-                alert("Validation failed: " + Object.values(errors).join(', '));
+                SwalAlert({ title: 'Validation Failed', text: Object.values(errors).join(', '), icon: 'error' });
             }
         });
     };
 
-    // Load an existing open draft bill into the cart (so user can add more items)
     const loadOpenBill = (tableId) => {
         const bill = openBills[tableId];
         if (!bill) return;
@@ -178,18 +219,19 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         setCustomerName(bill.customer_name || '');
         setCurrentOrderId(bill.order_id);
 
-        // Convert saved items to cart format
-        const loadedCart = bill.items.map(item => ({
+        const loadedCart = bill.items.map((item, idx) => ({
             id: item.id,
+            variant_id: item.variant_id || null,
+            cart_key: item.variant_id ? `${item.id}-${item.variant_id}` : `item-${item.id}-${idx}`,
             name: item.name,
             price: item.price,
             qty: item.qty,
         }));
 
         setCart(loadedCart);
+        SwalToast(`Loaded bill for Table ${tables.find(t => t.id == tableId)?.table_number || ''}`);
     };
 
-    // Load a draft from the all drafts modal
     const loadDraft = (draft) => {
         setSelectedTable(draft.table_id || '');
         setOrderType(draft.order_type || 'takeaway');
@@ -199,8 +241,10 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         setDeliveryFee(draft.delivery_fee > 0 ? draft.delivery_fee.toString() : '');
         setCurrentOrderId(draft.id);
 
-        const loadedCart = draft.items.map(item => ({
+        const loadedCart = draft.items.map((item, idx) => ({
             id: item.id,
+            variant_id: item.variant_id || null,
+            cart_key: item.variant_id ? `${item.id}-${item.variant_id}` : `item-${item.id}-${idx}`,
             name: item.name,
             price: item.price,
             qty: item.qty,
@@ -208,13 +252,14 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
         setCart(loadedCart);
         setShowDraftsModal(false);
+        SwalToast('Draft bill loaded');
     };
 
     const printReceipt = () => {
         if (lastOrder && lastOrder.order_id !== 'N/A') {
             window.open(`/orders/${lastOrder.order_id}/receipt`, '_blank', 'width=400,height=600');
         } else {
-            alert('Order ID not available for printing.');
+            SwalAlert({ title: 'Print Error', text: 'Order ID not available for printing.', icon: 'warning' });
         }
     };
 
@@ -222,7 +267,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         if (lastOrder && lastOrder.order_id !== 'N/A') {
             window.open(`/orders/${lastOrder.order_id}/kot`, '_blank', 'width=400,height=600');
         } else {
-            alert('Order ID not available for KOT.');
+            SwalAlert({ title: 'Print Error', text: 'Order ID not available for KOT.', icon: 'warning' });
         }
     };
 
@@ -230,7 +275,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         if (lastOrder && lastOrder.order_id !== 'N/A') {
             window.open(`/orders/${lastOrder.order_id}/both`, '_blank', 'width=400,height=750');
         } else {
-            alert('Order ID not available for printing.');
+            SwalAlert({ title: 'Print Error', text: 'Order ID not available for printing.', icon: 'warning' });
         }
     };
 
@@ -307,11 +352,13 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                         {filteredMenu.map(item => {
                             const isOutOfStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity <= 0;
                             const isLowStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity > 0 && item.stock_quantity <= 5;
+                            const hasVars = item.variants && item.variants.length > 0;
+                            const minPrice = hasVars ? Math.min(...item.variants.map(v => Number(v.price))) : Number(item.price);
 
                             return (
                                 <button
                                     key={item.id}
-                                    onClick={() => !isOutOfStock && addToCart(item)}
+                                    onClick={() => !isOutOfStock && handleProductClick(item)}
                                     disabled={isOutOfStock}
                                     className={`p-3 sm:p-4 rounded-2xl shadow-xs border transition-all text-left group flex flex-col items-center text-center relative overflow-hidden ${
                                         isOutOfStock 
@@ -348,9 +395,18 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                         {item.name}
                                     </h3>
 
-                                    <p className={`font-bold mt-1 sm:mt-2 text-sm sm:text-base ${isOutOfStock ? 'text-gray-400 line-through' : 'text-primary'}`}>
-                                        {currency}{Number(item.price).toFixed(2)}
-                                    </p>
+                                    <div className={`font-bold mt-1 sm:mt-2 text-sm sm:text-base ${isOutOfStock ? 'text-gray-400 line-through' : 'text-primary'}`}>
+                                        {hasVars ? (
+                                            <div className="flex flex-col items-center">
+                                                <span>{currency}{minPrice.toFixed(2)}+</span>
+                                                <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mt-0.5 flex items-center gap-0.5">
+                                                    <Layers className="w-3 h-3" /> {item.variants.length} Sizes
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span>{currency}{Number(item.price).toFixed(2)}</span>
+                                        )}
+                                    </div>
                                 </button>
                             );
                         })}
@@ -387,7 +443,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 </div>
                             </div>
 
-                            {/* Customer Name - Optional */}
+                            {/* Customer Name */}
                             <div>
                                 <label className="text-xs font-medium text-gray-600 block mb-1">Customer Name (Optional)</label>
                                 <input
@@ -459,7 +515,6 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             {/* Table Selection + Open Bills - Only for Dine In */}
                             {orderType === 'dine_in' && (
                                 <div className="space-y-3">
-                                    {/* Quick select */}
                                     <div>
                                         <label className="text-xs font-medium text-gray-600 block mb-1">Select Table</label>
                                         <select
@@ -476,7 +531,6 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                         </select>
                                     </div>
 
-                                    {/* Open Bills Grid - See and continue existing table bills */}
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
                                             <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -555,23 +609,26 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                     <p>No items in cart yet</p>
                                 </div>
                             ) : (
-                                cart.map(item => (
-                                    <div key={item.id} className="flex items-center justify-between gap-4">
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-gray-800 text-sm">{item.name}</h4>
-                                            <p className="text-primary font-bold text-sm">{currency}{(item.price * item.qty).toFixed(2)}</p>
+                                cart.map((item, index) => {
+                                    const itemKey = item.cart_key || item.id;
+                                    return (
+                                        <div key={itemKey || index} className="flex items-center justify-between gap-4">
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-gray-800 text-sm">{item.name}</h4>
+                                                <p className="text-primary font-bold text-sm">{currency}{(item.price * item.qty).toFixed(2)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-gray-100">
+                                                <button onClick={() => updateQty(itemKey, -1)} className="p-1 hover:bg-white rounded-lg text-gray-500 transition-colors">
+                                                    {item.qty === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
+                                                </button>
+                                                <span className="w-4 text-center font-semibold text-sm">{item.qty}</span>
+                                                <button onClick={() => updateQty(itemKey, 1)} className="p-1 hover:bg-white rounded-lg text-primary transition-colors">
+                                                    <Plus className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-gray-100">
-                                            <button onClick={() => updateQty(item.id, -1)} className="p-1 hover:bg-white rounded-lg text-gray-500 transition-colors">
-                                                {item.qty === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
-                                            </button>
-                                            <span className="w-4 text-center font-semibold text-sm">{item.qty}</span>
-                                            <button onClick={() => updateQty(item.id, 1)} className="p-1 hover:bg-white rounded-lg text-primary transition-colors">
-                                                <Plus className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -599,7 +656,6 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             </div>
                         </div>
 
-                        {/* Save as Draft Button - for open bills (especially Dine In) */}
                         {(orderType === 'dine_in' || isWaiter) && (
                             <button
                                 type="button"
@@ -658,6 +714,51 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </div>
             </div>
 
+            {/* Select Size / Variant Modal */}
+            {sizeModalItem && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+                        <button 
+                            onClick={() => setSizeModalItem(null)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="text-center mb-5">
+                            {sizeModalItem.image ? (
+                                <img src={`/storage/${sizeModalItem.image}`} alt={sizeModalItem.name} className="w-16 h-16 object-cover rounded-full mx-auto mb-2 border border-gray-100 shadow-xs" />
+                            ) : (
+                                <div className="text-4xl mb-2">🍽️</div>
+                            )}
+                            <h3 className="text-lg font-bold text-gray-900">{sizeModalItem.name}</h3>
+                            <p className="text-xs text-purple-600 font-medium">Please select a size variant</p>
+                        </div>
+
+                        <div className="space-y-2.5 mb-5 max-h-60 overflow-y-auto pr-1">
+                            {sizeModalItem.variants.map(variant => (
+                                <button
+                                    key={variant.id}
+                                    onClick={() => addVariantToCart(sizeModalItem, variant)}
+                                    className="w-full p-3.5 rounded-xl border border-gray-200 hover:border-primary hover:bg-primary/5 flex justify-between items-center transition-all group shadow-2xs"
+                                >
+                                    <span className="font-semibold text-gray-800 text-sm group-hover:text-primary">{variant.name}</span>
+                                    <span className="font-bold text-primary text-base">{currency}{Number(variant.price).toFixed(2)}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            className="w-full text-xs py-2 rounded-xl"
+                            onClick={() => setSizeModalItem(null)}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Receipt Modal */}
             {showReceipt && lastOrder && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:bg-white print:p-0 print:block">
@@ -673,8 +774,8 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             </div>
                             
                             <div className="space-y-3 mb-6">
-                                {lastOrder.items.map(item => (
-                                    <div key={item.id} className="flex justify-between text-sm">
+                                {lastOrder.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between text-sm">
                                         <span>{item.qty}x {item.name}</span>
                                         <span>{currency}{(item.price * item.qty).toFixed(2)}</span>
                                     </div>

@@ -43,4 +43,9 @@ class MenuItem extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function variants()
+    {
+        return $this->hasMany(MenuItemVariant::class);
+    }
 }

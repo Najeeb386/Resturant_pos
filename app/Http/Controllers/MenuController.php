@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
+use App\Models\MenuItemVariant;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class MenuController extends Controller
 {
@@ -15,7 +17,7 @@ class MenuController extends Controller
         $restaurantId = auth()->user()->restaurant_id;
 
         $categories = MenuCategory::where('restaurant_id', $restaurantId)->get();
-        $menuItems = MenuItem::with(['category', 'ingredients'])
+        $menuItems = MenuItem::with(['category', 'ingredients', 'variants'])
             ->where('restaurant_id', $restaurantId)
             ->get();
 
@@ -69,11 +71,16 @@ class MenuController extends Controller
             'category_id' => 'required|exists:menu_categories,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
             'cost_price' => 'nullable|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'image' => 'nullable|image|max:2048',
             'is_deal' => 'boolean',
+            'has_variants' => 'boolean',
+            'variants' => 'nullable|array',
+            'variants.*.name' => 'required_with:variants|string|max:255',
+            'variants.*.price' => 'required_with:variants|numeric|min:0',
+            'variants.*.cost_price' => 'nullable|numeric|min:0',
             'ingredients' => 'nullable|array',
             'ingredients.*.id' => 'required|exists:inventory,id',
             'ingredients.*.quantity' => 'required|numeric|min:0.0001',
@@ -82,40 +89,71 @@ class MenuController extends Controller
             'dealItems.*.quantity' => 'required|integer|min:1',
         ]);
 
-        $data = $request->except('image');
-        $data['restaurant_id'] = auth()->user()->restaurant_id;
+        DB::beginTransaction();
+        try {
+            $data = $request->except(['image', 'variants', 'has_variants']);
+            $data['restaurant_id'] = auth()->user()->restaurant_id;
 
-        if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store("restaurants/{$data['restaurant_id']}/menu", 'public');
-        }
+            // If variants are provided, set default price to first variant's price
+            if ($request->has_variants && $request->has('variants') && count($request->variants) > 0) {
+                $data['price'] = (float) $request->variants[0]['price'];
+                $data['cost_price'] = (float) ($request->variants[0]['cost_price'] ?? 0);
+            } else {
+                $data['price'] = (float) ($request->price ?? 0);
+                $data['cost_price'] = (float) ($request->cost_price ?? 0);
+            }
 
-        if ($request->is_deal && $request->has('dealItems')) {
-            $data['cost_price'] = 0;
-            foreach ($request->dealItems as $dealItem) {
-                $childItem = MenuItem::find($dealItem['id']);
-                if ($childItem) {
-                    $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+            if ($request->hasFile('image')) {
+                $data['image'] = $request->file('image')->store("restaurants/{$data['restaurant_id']}/menu", 'public');
+            }
+
+            if ($request->is_deal && $request->has('dealItems')) {
+                $data['cost_price'] = 0;
+                foreach ($request->dealItems as $dealItem) {
+                    $childItem = MenuItem::find($dealItem['id']);
+                    if ($childItem) {
+                        $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                    }
                 }
             }
-        }
 
-        $menuItem = MenuItem::create($data);
+            $menuItem = MenuItem::create($data);
 
-        if ($request->is_deal && $request->has('dealItems')) {
-            $syncData = [];
-            foreach ($request->dealItems as $di) {
-                $syncData[$di['id']] = ['quantity' => $di['quantity']];
+            // Handle variants creation
+            if ($request->has_variants && $request->has('variants')) {
+                foreach ($request->variants as $v) {
+                    if (!empty($v['name']) && isset($v['price'])) {
+                        MenuItemVariant::create([
+                            'menu_item_id' => $menuItem->id,
+                            'name' => trim($v['name']),
+                            'price' => (float) $v['price'],
+                            'cost_price' => (float) ($v['cost_price'] ?? 0),
+                        ]);
+                    }
+                }
             }
-            $menuItem->dealItems()->sync($syncData);
-        } else if (!$request->is_deal && $request->has('ingredients')) {
-            $syncData = [];
-            foreach ($request->ingredients as $ing) {
-                $syncData[$ing['id']] = ['quantity' => $ing['quantity']];
-            }
-            $menuItem->ingredients()->sync($syncData);
-        }
 
-        return back()->with('message', 'Menu item added successfully.');
+            if ($request->is_deal && $request->has('dealItems')) {
+                $syncData = [];
+                foreach ($request->dealItems as $di) {
+                    $syncData[$di['id']] = ['quantity' => $di['quantity']];
+                }
+                $menuItem->dealItems()->sync($syncData);
+            } else if (!$request->is_deal && $request->has('ingredients')) {
+                $syncData = [];
+                foreach ($request->ingredients as $ing) {
+                    $syncData[$ing['id']] = ['quantity' => $ing['quantity']];
+                }
+                $menuItem->ingredients()->sync($syncData);
+            }
+
+            DB::commit();
+            return back()->with('message', 'Menu item added successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Store Item Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to store menu item.']);
+        }
     }
 
     public function updateItem(Request $request, MenuItem $menuItem)
@@ -130,11 +168,16 @@ class MenuController extends Controller
             'category_id' => 'required|exists:menu_categories,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
             'cost_price' => 'nullable|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'image' => 'nullable|image|max:2048',
             'is_deal' => 'boolean',
+            'has_variants' => 'boolean',
+            'variants' => 'nullable|array',
+            'variants.*.name' => 'required_with:variants|string|max:255',
+            'variants.*.price' => 'required_with:variants|numeric|min:0',
+            'variants.*.cost_price' => 'nullable|numeric|min:0',
             'ingredients' => 'nullable|array',
             'ingredients.*.id' => 'required|exists:inventory,id',
             'ingredients.*.quantity' => 'required|numeric|min:0.0001',
@@ -143,44 +186,75 @@ class MenuController extends Controller
             'dealItems.*.quantity' => 'required|integer|min:1',
         ]);
 
-        $data = $request->except('image');
+        DB::beginTransaction();
+        try {
+            $data = $request->except(['image', 'variants', 'has_variants']);
 
-        if ($request->hasFile('image')) {
-            if ($menuItem->image) {
-                Storage::disk('public')->delete($menuItem->image);
+            if ($request->has_variants && $request->has('variants') && count($request->variants) > 0) {
+                $data['price'] = (float) $request->variants[0]['price'];
+                $data['cost_price'] = (float) ($request->variants[0]['cost_price'] ?? 0);
+            } else {
+                $data['price'] = (float) ($request->price ?? 0);
+                $data['cost_price'] = (float) ($request->cost_price ?? 0);
             }
-            $data['image'] = $request->file('image')->store("restaurants/{$menuItem->restaurant_id}/menu", 'public');
-        }
 
-        if ($request->is_deal && $request->has('dealItems')) {
-            $data['cost_price'] = 0;
-            foreach ($request->dealItems as $dealItem) {
-                $childItem = MenuItem::find($dealItem['id']);
-                if ($childItem) {
-                    $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+            if ($request->hasFile('image')) {
+                if ($menuItem->image) {
+                    Storage::disk('public')->delete($menuItem->image);
+                }
+                $data['image'] = $request->file('image')->store("restaurants/{$menuItem->restaurant_id}/menu", 'public');
+            }
+
+            if ($request->is_deal && $request->has('dealItems')) {
+                $data['cost_price'] = 0;
+                foreach ($request->dealItems as $dealItem) {
+                    $childItem = MenuItem::find($dealItem['id']);
+                    if ($childItem) {
+                        $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                    }
                 }
             }
-        }
 
-        $menuItem->update($data);
+            $menuItem->update($data);
 
-        if ($request->is_deal && $request->has('dealItems')) {
-            $syncData = [];
-            foreach ($request->dealItems as $di) {
-                $syncData[$di['id']] = ['quantity' => $di['quantity']];
+            // Handle variants sync
+            $menuItem->variants()->delete();
+            if ($request->has_variants && $request->has('variants')) {
+                foreach ($request->variants as $v) {
+                    if (!empty($v['name']) && isset($v['price'])) {
+                        MenuItemVariant::create([
+                            'menu_item_id' => $menuItem->id,
+                            'name' => trim($v['name']),
+                            'price' => (float) $v['price'],
+                            'cost_price' => (float) ($v['cost_price'] ?? 0),
+                        ]);
+                    }
+                }
             }
-            $menuItem->dealItems()->sync($syncData);
-            $menuItem->ingredients()->detach(); // Clear ingredients if converted to deal
-        } else if (!$request->is_deal && $request->has('ingredients')) {
-            $syncData = [];
-            foreach ($request->ingredients as $ing) {
-                $syncData[$ing['id']] = ['quantity' => $ing['quantity']];
-            }
-            $menuItem->ingredients()->sync($syncData);
-            $menuItem->dealItems()->detach(); // Clear deal items if converted to regular item
-        }
 
-        return back()->with('message', 'Menu item updated successfully.');
+            if ($request->is_deal && $request->has('dealItems')) {
+                $syncData = [];
+                foreach ($request->dealItems as $di) {
+                    $syncData[$di['id']] = ['quantity' => $di['quantity']];
+                }
+                $menuItem->dealItems()->sync($syncData);
+                $menuItem->ingredients()->detach();
+            } else if (!$request->is_deal && $request->has('ingredients')) {
+                $syncData = [];
+                foreach ($request->ingredients as $ing) {
+                    $syncData[$ing['id']] = ['quantity' => $ing['quantity']];
+                }
+                $menuItem->ingredients()->sync($syncData);
+                $menuItem->dealItems()->detach();
+            }
+
+            DB::commit();
+            return back()->with('message', 'Menu item updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Update Item Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to update menu item.']);
+        }
     }
 
     public function destroyItem(MenuItem $menuItem)

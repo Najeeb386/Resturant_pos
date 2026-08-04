@@ -5,6 +5,7 @@ import { Badge } from '../../Components/ui/Badge';
 import { Button } from '../../Components/ui/Button';
 import { Plus, Trash2, X, Loader2, Edit2, UserCircle, Search, Filter } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
+import { SwalConfirm, SwalToast } from '../../Utils/swal';
 
 export default function StaffIndex({ staff = [], roles = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,19 +49,34 @@ export default function StaffIndex({ staff = [], roles = [] }) {
         e.preventDefault();
         if (editingId) {
             put(`/staff/${editingId}`, {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Staff member updated');
+                },
             });
         } else {
             post('/staff', {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Staff member added');
+                },
             });
         }
     };
 
     const handleDelete = (id) => {
-        if (confirm('Are you sure you want to remove this staff member?')) {
-            destroy(`/staff/${id}`);
-        }
+        SwalConfirm({
+            title: 'Remove Staff Member?',
+            text: 'Are you sure you want to remove this staff member?',
+            confirmButtonText: 'Yes, remove staff',
+            confirmButtonColor: '#ef4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/staff/${id}`, {
+                    onSuccess: () => SwalToast('Staff member removed')
+                });
+            }
+        });
     };
 
     // Filter staff members in real-time
