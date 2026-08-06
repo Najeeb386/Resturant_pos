@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/local_db_service.dart';
@@ -7,6 +8,7 @@ import '../services/sync_service.dart';
 class AppProvider extends ChangeNotifier {
   final LocalDbService _dbService = LocalDbService();
   final SyncService _syncService = SyncService();
+  Timer? _pollingTimer;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -65,6 +67,14 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
     });
     loadLocalData();
+    _startSilentPolling();
+  }
+
+  void _startSilentPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      refreshFromApi(silent: true);
+    });
   }
 
   void setSearchQuery(String q) {
@@ -202,14 +212,21 @@ class AppProvider extends ChangeNotifier {
     _menuItems = await _dbService.getMenuItems();
     _tables = await _dbService.getTables();
     _orders = await _dbService.getOrders();
+
+    // Populate persistent draft bills from local storage
+    _drafts = _orders.where((o) => o.paymentStatus == 'unpaid' || o.status == 'pending' || o.status == 'draft').toList();
+    _drafts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     await _syncService.updatePendingCount();
     notifyListeners();
   }
 
-  Future<void> refreshFromApi() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> refreshFromApi({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       var data = await ApiService.fetchBootstrapData();
@@ -230,12 +247,18 @@ class AppProvider extends ChangeNotifier {
         for (var o in _orders) {
           await _dbService.saveOrder(o);
         }
+        _drafts = _orders.where((o) => o.paymentStatus == 'unpaid' || o.status == 'pending' || o.status == 'draft').toList();
+        _drafts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       }
     } catch (e) {
-      _errorMessage = 'Offline mode active. Loaded cached data.';
-      await loadLocalData();
+      if (!silent) {
+        _errorMessage = 'Offline mode active. Loaded cached data.';
+        await loadLocalData();
+      }
     } finally {
-      _isLoading = false;
+      if (!silent) {
+        _isLoading = false;
+      }
       notifyListeners();
     }
   }

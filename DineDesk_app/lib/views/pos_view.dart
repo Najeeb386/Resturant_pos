@@ -453,37 +453,39 @@ class PosView extends StatelessWidget {
                           backgroundColor: Colors.deepOrange,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                    onPressed: provider.cart.isEmpty
-                        ? null
-                        : () async {
-                            if (provider.orderType == 'dine_in' && provider.selectedTableId == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select a Table for Dine-In order'), backgroundColor: Colors.amber),
-                              );
-                              return;
-                            }
-                            try {
-                              var order = await provider.submitOrder();
-                              String orderIdShort = order.localId.length >= 4 ? order.localId.substring(order.localId.length - 4) : order.localId;
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Order #$orderIdShort completed successfully!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          },
-                    child: const Text('Pay Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                        onPressed: provider.cart.isEmpty
+                            ? null
+                            : () async {
+                                if (provider.orderType == 'dine_in' && provider.selectedTableId == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please select a Table for Dine-In order'), backgroundColor: Colors.amber),
+                                  );
+                                  return;
+                                }
+                                try {
+                                  var order = await provider.submitOrder();
+                                  String orderIdShort = order.localId.length >= 4 ? order.localId.substring(order.localId.length - 4) : order.localId;
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Order #$orderIdShort completed successfully!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                        child: const Text('Pay Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               );
             },
           ),

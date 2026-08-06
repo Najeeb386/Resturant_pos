@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
+import '../services/api_service.dart';
 import 'login_view.dart';
+import 'main_view.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -12,16 +16,28 @@ class _SplashViewState extends State<SplashView> {
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _navigateToNext();
   }
 
-  Future<void> _navigateToLogin() async {
-    await Future.delayed(const Duration(seconds: 2));
+  Future<void> _navigateToNext() async {
+    await ApiService.initUrl();
+    bool loggedIn = await ApiService.isLoggedIn();
+    await Future.delayed(const Duration(seconds: 1));
+
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginView()),
-      );
+      if (loggedIn) {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        provider.refreshFromApi();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainView()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginView()),
+        );
+      }
     }
   }
 

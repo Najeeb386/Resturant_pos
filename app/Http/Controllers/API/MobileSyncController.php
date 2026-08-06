@@ -187,4 +187,27 @@ class MobileSyncController extends Controller
             ], 500);
         }
     }
+
+    public function updateOrderStatus(Request $request, $id)
+    {
+        $user = $request->user();
+        $order = Order::where('restaurant_id', $user->restaurant_id)->findOrFail($id);
+
+        $status = $request->input('status');
+        $paymentStatus = $request->input('payment_status');
+
+        $updateData = [];
+        if ($status) $updateData['status'] = $status;
+        if ($paymentStatus) $updateData['payment_status'] = $paymentStatus;
+
+        if (!empty($updateData)) {
+            $order->update($updateData);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order status updated successfully.',
+            'order' => $order,
+        ]);
+    }
 }

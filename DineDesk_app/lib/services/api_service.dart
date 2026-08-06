@@ -19,6 +19,16 @@ class ApiService {
     return prefs.getString('api_token');
   }
 
+  static Future<bool> isLoggedIn() async {
+    String? token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('api_token');
+  }
+
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('api_token', token);

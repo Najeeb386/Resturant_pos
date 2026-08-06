@@ -225,12 +225,14 @@ class OrderModel {
       status: json['status'] ?? 'completed',
       synced: json['synced'] == 1 || json['synced'] == true || json['id'] != null,
       createdAt: json['created_at'] ?? DateTime.now().toIso8601String(),
-      items: (json['items'] as List? ?? []).map((i) => CartItem(
+      items: (json['items'] as List? ?? json['order_items'] as List? ?? json['orderItems'] as List? ?? []).map((i) => CartItem(
         menuItemId: i['menu_item_id'] ?? i['id'] ?? 0,
         variantId: i['variant_id'],
-        cartKey: i['cart_key'] ?? '${i['id']}',
-        name: i['name'] ?? i['menu_item']?['name'] ?? 'Item',
-        price: double.tryParse(i['price'].toString()) ?? 0.0,
+        cartKey: i['cart_key'] ?? '${i['menu_item_id'] ?? i['id']}',
+        name: i['menu_item'] != null && i['menu_item']['name'] != null 
+            ? i['menu_item']['name'] 
+            : (i['name'] ?? i['notes'] ?? 'Item'),
+        price: double.tryParse(i['price']?.toString() ?? '0') ?? 0.0,
         qty: i['quantity'] ?? i['qty'] ?? 1,
       )).toList(),
     );

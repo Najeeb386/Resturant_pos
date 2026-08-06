@@ -42,5 +42,6 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bootstrap', [\App\Http\Controllers\API\MobileSyncController::class, 'bootstrap']);
         Route::post('/sync/orders', [\App\Http\Controllers\API\MobileSyncController::class, 'syncOrders']);
+        Route::patch('/orders/{id}/status', [\App\Http\Controllers\API\MobileSyncController::class, 'updateOrderStatus']);
     });
 });

@@ -63,15 +63,45 @@ class _MainViewState extends State<MainView> {
         elevation: 0.5,
         foregroundColor: Colors.black87,
         actions: [
+          // Sleek Active / Inactive Status Pill Badge
+          Container(
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: provider.syncStatus == SyncStatus.offline ? Colors.red.shade50 : Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: provider.syncStatus == SyncStatus.offline ? Colors.red.shade300 : Colors.green.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: provider.syncStatus == SyncStatus.offline ? Colors.red.shade600 : Colors.green.shade600,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  provider.syncStatus == SyncStatus.offline ? 'Inactive' : 'Active',
+                  style: TextStyle(
+                    color: provider.syncStatus == SyncStatus.offline ? Colors.red.shade800 : Colors.green.shade800,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => provider.refreshFromApi(),
-          )
+          ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(32),
-          child: _buildSyncBanner(context, provider),
-        ),
       ),
       drawer: NavigationDrawer(
         selectedIndex: _currentIndex,
@@ -110,36 +140,6 @@ class _MainViewState extends State<MainView> {
         ],
       ),
       body: _views[_currentIndex],
-    );
-  }
-
-  Widget _buildSyncBanner(BuildContext context, AppProvider provider) {
-    Color bg = Colors.green.shade600;
-    String text = '🟢 Online (Synced with Server)';
-
-    if (provider.syncStatus == SyncStatus.offline) {
-      bg = Colors.amber.shade800;
-      text = '🟠 Offline Mode (${provider.pendingSyncCount} pending orders to sync)';
-    } else if (provider.syncStatus == SyncStatus.syncing) {
-      bg = Colors.blue.shade600;
-      text = '🔄 Auto-Syncing pending data with server...';
-    }
-
-    return Container(
-      width: double.infinity,
-      color: bg,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(text, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-          if (provider.pendingSyncCount > 0 && provider.syncStatus != SyncStatus.syncing)
-            GestureDetector(
-              onTap: () => provider.refreshFromApi(),
-              child: const Text('SYNC NOW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, decoration: TextDecoration.underline)),
-            )
-        ],
-      ),
     );
   }
 }

@@ -1,9 +1,35 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 
-class KitchenView extends StatelessWidget {
+class KitchenView extends StatefulWidget {
   const KitchenView({super.key});
+
+  @override
+  State<KitchenView> createState() => _KitchenViewState();
+}
+
+class _KitchenViewState extends State<KitchenView> {
+  Timer? _realtimeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Realtime silent auto-update every 2 seconds without reload flicker
+    _realtimeTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        provider.refreshFromApi(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _realtimeTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
