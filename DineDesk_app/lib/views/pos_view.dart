@@ -394,40 +394,65 @@ class PosView extends StatelessWidget {
           const SizedBox(height: 10),
 
           // Actions Row (Hold Draft & Pay Now)
-          Row(
-            children: [
-              Expanded(
-                flex: 4,
-                child: SizedBox(
-                  height: 46,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.purple),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Builder(
+            builder: (context) {
+              bool isDineIn = provider.orderType == 'dine_in';
+              bool isTableSelected = provider.selectedTableId != null;
+              bool canHoldDraft = isDineIn && provider.cart.isNotEmpty && isTableSelected;
+
+              return Row(
+                children: [
+                  if (isDineIn) ...[
+                    Expanded(
+                      flex: 4,
+                      child: SizedBox(
+                        height: 46,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: canHoldDraft ? Colors.purple : Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: !canHoldDraft
+                              ? () {
+                                  if (provider.cart.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Cart is empty'), backgroundColor: Colors.amber),
+                                    );
+                                  } else if (!isTableSelected) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Please select a Table for Dine-In draft bill'), backgroundColor: Colors.amber),
+                                    );
+                                  }
+                                }
+                              : () {
+                                  provider.saveAsDraft();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Dine-In Bill saved as Draft & Sent to Kitchen!'), backgroundColor: Colors.purple),
+                                  );
+                                },
+                          icon: Icon(Icons.bookmark, color: canHoldDraft ? Colors.purple : Colors.grey.shade400, size: 18),
+                          label: Text(
+                            'Hold Draft',
+                            style: TextStyle(
+                              color: canHoldDraft ? Colors.purple : Colors.grey.shade400,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    onPressed: provider.cart.isEmpty
-                        ? null
-                        : () {
-                            provider.saveAsDraft();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Order saved as Draft!'), backgroundColor: Colors.purple),
-                            );
-                          },
-                    icon: const Icon(Icons.bookmark, color: Colors.purple, size: 18),
-                    label: const Text('Hold Draft', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 6,
-                child: SizedBox(
-                  height: 46,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    flex: isDineIn ? 6 : 10,
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                     onPressed: provider.cart.isEmpty
                         ? null
                         : () async {
@@ -459,9 +484,9 @@ class PosView extends StatelessWidget {
                     child: const Text('Pay Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 ),
-              ),
-            ],
-          )
+              );
+            },
+          ),
         ],
       ),
     );

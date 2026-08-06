@@ -84,7 +84,47 @@ class MobileSyncController extends Controller
         DB::beginTransaction();
         try {
             foreach ($offlineOrders as $offlineOrder) {
-                // Check if already synced by client_uuid or local_id
+                $localId = $offlineOrder['local_id'] ?? null;
+                $serverId = $offlineOrder['server_id'] ?? $offlineOrder['id'] ?? null;
+
+                // 1. If server_id exists, order is already created on server - just update status
+                if ($serverId) {
+                    $existingOrder = Order::where('restaurant_id', $restaurantId)->find($serverId);
+                    if ($existingOrder) {
+                        $existingOrder->update([
+                            'status' => $offlineOrder['status'] ?? $existingOrder->status,
+                            'payment_status' => $offlineOrder['payment_status'] ?? $existingOrder->payment_status,
+                        ]);
+                        $syncedResults[] = [
+                            'local_id' => $localId,
+                            'server_id' => $existingOrder->id,
+                            'created_at' => $existingOrder->created_at,
+                        ];
+                        continue;
+                    }
+                }
+
+                // 2. Check if local_id already synced previously
+                if ($localId) {
+                    $existingByLocalId = Order::where('restaurant_id', $restaurantId)
+                        ->where('notes', 'LIKE', "%[LOCAL_ID:{$localId}]%")
+                        ->first();
+                    if ($existingByLocalId) {
+                        $existingByLocalId->update([
+                            'status' => $offlineOrder['status'] ?? $existingByLocalId->status,
+                            'payment_status' => $offlineOrder['payment_status'] ?? $existingByLocalId->payment_status,
+                        ]);
+                        $syncedResults[] = [
+                            'local_id' => $localId,
+                            'server_id' => $existingByLocalId->id,
+                            'created_at' => $existingByLocalId->created_at,
+                        ];
+                        continue;
+                    }
+                }
+
+                $notes = trim(($offlineOrder['notes'] ?? '') . ($localId ? " [LOCAL_ID:{$localId}]" : ''));
+
                 $order = Order::create([
                     'restaurant_id' => $restaurantId,
                     'user_id' => $user->id,
@@ -100,7 +140,7 @@ class MobileSyncController extends Controller
                     'payment_method' => $offlineOrder['payment_method'] ?? 'Cash',
                     'payment_status' => $offlineOrder['payment_status'] ?? 'paid',
                     'status' => $offlineOrder['status'] ?? 'completed',
-                    'notes' => $offlineOrder['notes'] ?? null,
+                    'notes' => $notes,
                 ]);
 
                 if (isset($offlineOrder['items']) && is_array($offlineOrder['items'])) {

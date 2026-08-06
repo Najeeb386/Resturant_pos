@@ -223,7 +223,7 @@ class OrderModel {
       paymentMethod: json['payment_method'] ?? 'Cash',
       paymentStatus: json['payment_status'] ?? 'paid',
       status: json['status'] ?? 'completed',
-      synced: json['synced'] == 1 || json['synced'] == true,
+      synced: json['synced'] == 1 || json['synced'] == true || json['id'] != null,
       createdAt: json['created_at'] ?? DateTime.now().toIso8601String(),
       items: (json['items'] as List? ?? []).map((i) => CartItem(
         menuItemId: i['menu_item_id'] ?? i['id'] ?? 0,
