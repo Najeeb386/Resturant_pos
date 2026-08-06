@@ -42,9 +42,10 @@ class RestaurantProfileController extends Controller
             'receipt_header' => 'nullable|string',
             'receipt_footer' => 'nullable|string',
             'kitchen_bypass' => 'boolean',
+            'payment_methods' => 'nullable|string|max:500',
         ]);
 
-        $data = $request->only('name', 'phone', 'address', 'email', 'gst_number', 'currency', 'currency_symbol', 'tax_percentage', 'receipt_header', 'receipt_footer', 'kitchen_bypass');
+        $data = $request->only('name', 'phone', 'address', 'email', 'gst_number', 'currency', 'currency_symbol', 'tax_percentage', 'receipt_header', 'receipt_footer', 'kitchen_bypass', 'payment_methods');
 
         if ($request->hasFile('logo')) {
             if ($restaurant->logo) {

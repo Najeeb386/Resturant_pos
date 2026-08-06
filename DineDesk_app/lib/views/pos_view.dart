@@ -10,10 +10,9 @@ class PosView extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
 
-    // Responsive layout check
     return LayoutBuilder(
       builder: (context, constraints) {
-        bool isWide = constraints.maxWidth >= 768; // Tablet or Landscape
+        bool isWide = constraints.maxWidth >= 768;
 
         return Scaffold(
           body: isWide
@@ -27,7 +26,8 @@ class PosView extends StatelessWidget {
               : Column(
                   children: [
                     Expanded(child: _buildMenuSection(context, provider)),
-                    if (provider.cart.isNotEmpty) _buildMobileCartBar(context, provider),
+                    if (provider.cart.isNotEmpty || provider.drafts.isNotEmpty)
+                      _buildMobileCartBar(context, provider),
                   ],
                 ),
         );
@@ -51,7 +51,7 @@ class PosView extends StatelessWidget {
           TextField(
             onChanged: provider.setSearchQuery,
             decoration: InputDecoration(
-              hintText: 'Search menu...',
+              hintText: 'Search menu items...',
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
               filled: true,
               fillColor: Colors.grey.shade100,
@@ -74,16 +74,16 @@ class PosView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Products Grid
+          // Products Grid (Fixed Aspect Ratio to 0.70 to prevent pixel overflow)
           Expanded(
             child: filteredItems.isEmpty
                 ? const Center(child: Text('No menu items found.', style: TextStyle(color: Colors.grey)))
                 : GridView.builder(
                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: 180,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.70,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
                     ),
                     itemCount: filteredItems.length,
                     itemBuilder: (context, index) {
@@ -106,37 +106,39 @@ class PosView extends StatelessWidget {
                             }
                           },
                           child: Padding(
-                            padding: const EdgeInsets.all(10.0),
+                            padding: const EdgeInsets.all(8.0),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('🍽️', style: TextStyle(fontSize: 36)),
-                                const SizedBox(height: 8),
+                                const Text('🍽️', style: TextStyle(fontSize: 32)),
                                 Text(
                                   item.name,
                                   maxLines: 2,
                                   textAlign: TextAlign.center,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  hasVars ? 'Rs ${item.price.toStringAsFixed(0)}+' : 'Rs ${item.price.toStringAsFixed(0)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                                ),
-                                if (hasVars)
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.purple.shade50,
-                                      borderRadius: BorderRadius.circular(8),
+                                Column(
+                                  children: [
+                                    Text(
+                                      hasVars ? 'Rs ${item.price.toStringAsFixed(0)}+' : 'Rs ${item.price.toStringAsFixed(0)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 13),
                                     ),
-                                    child: Text(
-                                      '${item.variants.length} Sizes',
-                                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.purple.shade800),
-                                    ),
-                                  ),
+                                    if (hasVars)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '${item.variants.length} Sizes',
+                                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.purple.shade800),
+                                        ),
+                                      ),
+                                  ],
+                                )
                               ],
                             ),
                           ),
@@ -177,25 +179,61 @@ class PosView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Current Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Chip(
-                label: Text('${provider.cart.length} items', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                backgroundColor: Colors.deepOrange,
+              Row(
+                children: [
+                  if (provider.drafts.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => _showDraftsModal(context, provider),
+                      icon: const Icon(Icons.bookmark_outline, size: 18, color: Colors.purple),
+                      label: Text('Drafts (${provider.drafts.length})', style: TextStyle(color: Colors.purple.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  Chip(
+                    label: Text('${provider.cart.length} items', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.deepOrange,
+                  ),
+                ],
               )
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Order type selection
+          // Order type selection (Takeaway, Dine In, Delivery)
           Row(
             children: [
               _orderTypeBtn(provider, 'takeaway', 'Takeaway'),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               _orderTypeBtn(provider, 'dine_in', 'Dine In'),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               _orderTypeBtn(provider, 'delivery', 'Delivery'),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Dine In Table Selector Dropdown
+          if (provider.orderType == 'dine_in')
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.deepOrange.shade200),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  isExpanded: true,
+                  hint: const Text('Select Table for Dine-In', style: TextStyle(fontSize: 13)),
+                  value: provider.selectedTableId,
+                  items: provider.tables.map((t) {
+                    return DropdownMenuItem<int>(
+                      value: t.id,
+                      child: Text('Table ${t.tableNumber} (${t.capacity} Seats)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    );
+                  }).toList(),
+                  onChanged: (val) => provider.setSelectedTableId(val),
+                ),
+              ),
+            ),
 
           // Cart Items List
           Expanded(
@@ -207,7 +245,7 @@ class PosView extends StatelessWidget {
                       final item = provider.cart[index];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
@@ -219,20 +257,20 @@ class PosView extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text('Rs ${(item.price * item.qty).toStringAsFixed(2)}', style: const TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.w600)),
+                                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text('Rs ${(item.price * item.qty).toStringAsFixed(2)}', style: const TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.w600, fontSize: 12)),
                                 ],
                               ),
                             ),
                             Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                  icon: const Icon(Icons.remove_circle_outline, size: 22, color: Colors.grey),
                                   onPressed: () => provider.updateCartQty(item.cartKey, -1),
                                 ),
-                                Text('${item.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text('${item.qty}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                 IconButton(
-                                  icon: const Icon(Icons.add_circle_outline, size: 20, color: Colors.deepOrange),
+                                  icon: const Icon(Icons.add_circle_outline, size: 22, color: Colors.deepOrange),
                                   onPressed: () => provider.updateCartQty(item.cartKey, 1),
                                 ),
                               ],
@@ -249,56 +287,96 @@ class PosView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Subtotal', style: TextStyle(color: Colors.grey)),
-              Text('Rs ${provider.subtotal.toStringAsFixed(2)}'),
+              const Text('Subtotal', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text('Rs ${provider.subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tax (10%)', style: TextStyle(color: Colors.grey)),
-              Text('Rs ${provider.tax.toStringAsFixed(2)}'),
+              const Text('Tax (10%)', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text('Rs ${provider.tax.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('Rs ${provider.total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+              const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Rs ${provider.total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Pay Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          // Actions Row (Hold Draft & Pay Now)
+          Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: SizedBox(
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.purple),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: provider.cart.isEmpty
+                        ? null
+                        : () {
+                            provider.saveAsDraft();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Order saved as Draft!'), backgroundColor: Colors.purple),
+                            );
+                          },
+                    icon: const Icon(Icons.bookmark, color: Colors.purple, size: 18),
+                    label: const Text('Hold Draft', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
               ),
-              onPressed: provider.cart.isEmpty
-                  ? null
-                  : () async {
-                      try {
-                        var order = await provider.submitOrder();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Order #${order.localId.substring(order.localId.length - 4)} completed!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    },
-              child: const Text('Pay Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 6,
+                child: SizedBox(
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrange,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: provider.cart.isEmpty
+                        ? null
+                        : () async {
+                            if (provider.orderType == 'dine_in' && provider.selectedTableId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please select a Table for Dine-In order'), backgroundColor: Colors.amber),
+                              );
+                              return;
+                            }
+                            try {
+                              var order = await provider.submitOrder();
+                              String orderIdShort = order.localId.length >= 4 ? order.localId.substring(order.localId.length - 4) : order.localId;
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Order #$orderIdShort completed successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                    child: const Text('Pay Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ),
+            ],
           )
         ],
       ),
@@ -308,22 +386,26 @@ class PosView extends StatelessWidget {
   Widget _orderTypeBtn(AppProvider provider, String type, String label) {
     bool isSelected = provider.orderType == type;
     return Expanded(
-      child: GestureDetector(
-        onTap: () => provider.setOrderType(type),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.deepOrange : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: isSelected ? Colors.deepOrange : Colors.grey.shade300),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : Colors.grey.shade700,
+      child: Material(
+        color: isSelected ? Colors.deepOrange : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => provider.setOrderType(type),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isSelected ? Colors.deepOrange : Colors.grey.shade300),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+              ),
             ),
           ),
         ),
@@ -346,17 +428,31 @@ class PosView extends StatelessWidget {
               Text('Rs ${provider.total.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.8, child: _buildCartSection(context, provider)),
-              );
-            },
-            icon: const Icon(Icons.shopping_cart, color: Colors.white),
-            label: const Text('View Cart', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              if (provider.drafts.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.bookmark, color: Colors.purpleAccent),
+                  onPressed: () => _showDraftsModal(context, provider),
+                ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (modalContext) => Consumer<AppProvider>(
+                      builder: (modalContext, modalProvider, child) => SizedBox(
+                        height: MediaQuery.of(modalContext).size.height * 0.85,
+                        child: _buildCartSection(modalContext, modalProvider),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                label: const Text('View Cart', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
           )
         ],
       ),
@@ -390,6 +486,51 @@ class PosView extends StatelessWidget {
                   ),
                 )),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showDraftsModal(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Saved Draft Bills', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: provider.drafts.isEmpty
+              ? const Text('No drafts saved.', textAlign: TextAlign.center)
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: provider.drafts.length,
+                  itemBuilder: (context, index) {
+                    final draft = provider.drafts[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text(draft.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${draft.items.length} items • Rs ${draft.total.toStringAsFixed(2)}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.upload, color: Colors.blue),
+                              onPressed: () {
+                                provider.loadDraft(draft);
+                                Navigator.pop(context);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => provider.deleteDraft(draft.localId),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ),
     );

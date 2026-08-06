@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'providers/app_provider.dart';
-import 'views/login_view.dart';
+import 'views/splash_view.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +30,7 @@ class DineDeskApp extends StatelessWidget {
         ),
         textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
       ),
-      home: const LoginView(),
+      home: const SplashView(),
     );
   }
 }

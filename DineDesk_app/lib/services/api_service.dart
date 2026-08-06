@@ -1,9 +1,18 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static String baseUrl = 'http://10.0.2.2:8000/api/v1'; // Default Android Emulator host (or 127.0.0.1:8000 for desktop)
+  static String get defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://127.0.0.1:8000/api/v1';
+    } else {
+      return 'http://10.0.2.2:8000/api/v1';
+    }
+  }
+
+  static String baseUrl = defaultBaseUrl;
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -24,8 +33,10 @@ class ApiService {
   static Future<void> initUrl() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedUrl = prefs.getString('base_url');
-    if (savedUrl != null && savedUrl.isNotEmpty) {
+    if (savedUrl != null && savedUrl.isNotEmpty && (!kIsWeb || !savedUrl.contains('10.0.2.2'))) {
       baseUrl = savedUrl;
+    } else {
+      baseUrl = defaultBaseUrl;
     }
   }
 

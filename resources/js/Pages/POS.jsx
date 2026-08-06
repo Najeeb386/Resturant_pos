@@ -130,6 +130,13 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const total = subtotal + tax + parsedDeliveryFee;
     const currency = restaurant.currency_symbol || '$';
 
+    const rawPaymentMethods = restaurant?.payment_methods || 'Cash,Card';
+    const configuredMethods = rawPaymentMethods.split(',').map(m => m.trim()).filter(Boolean);
+    const availablePaymentMethods = [
+        ...(configuredMethods.length > 0 ? configuredMethods : ['Cash', 'Card']),
+        ...(orderType === 'delivery' && !configuredMethods.includes('Cash on Delivery') ? ['Cash on Delivery'] : [])
+    ];
+
     // Sync cart to form data
     useEffect(() => {
         setData(currentData => ({
@@ -673,22 +680,21 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
                         {!isWaiter && (
                             <>
-                                <div className="flex gap-1 mb-4 bg-gray-100 p-1.5 rounded-xl">
-                                    {['Cash', 'Card', 'QR Pay', ...(orderType === 'delivery' ? ['Cash on Delivery'] : [])].map(method => (
+                                <div className="flex gap-1.5 mb-4 bg-gray-100 p-1.5 rounded-xl flex-wrap">
+                                    {availablePaymentMethods.map(method => (
                                         <button
                                             key={method}
                                             type="button"
                                             onClick={() => setData('payment_method', method)}
-                                            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                            className={`flex-1 min-w-[70px] py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                                                 data.payment_method === method 
                                                 ? 'bg-white text-gray-800 shadow-sm' 
                                                 : 'text-gray-500 hover:text-gray-700'
                                             }`}
                                         >
-                                            {method === 'Cash' && <Banknote className="w-4 h-4" />}
-                                            {method === 'Card' && <CreditCard className="w-4 h-4" />}
-                                            {method === 'QR Pay' && <QrCode className="w-4 h-4" />}
-                                            {method === 'Cash on Delivery' && <Banknote className="w-4 h-4" />}
+                                            {method.toLowerCase().includes('cash') && <Banknote className="w-4 h-4" />}
+                                            {method.toLowerCase().includes('card') && <CreditCard className="w-4 h-4" />}
+                                            {!method.toLowerCase().includes('cash') && !method.toLowerCase().includes('card') && <QrCode className="w-4 h-4" />}
                                             {method === 'Cash on Delivery' ? 'COD' : method}
                                         </button>
                                     ))}

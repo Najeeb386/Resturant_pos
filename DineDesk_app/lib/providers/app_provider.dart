@@ -205,6 +205,101 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  List<OrderModel> _drafts = [];
+
+  List<OrderModel> get drafts => _drafts;
+
+  // --- Draft Bills Actions ---
+  void saveAsDraft() {
+    if (_cart.isEmpty) return;
+
+    String localId = 'DRAFT-${DateTime.now().millisecondsSinceEpoch}';
+    OrderModel draft = OrderModel(
+      localId: localId,
+      tableId: _selectedTableId,
+      orderType: _orderType,
+      customerName: _customerName.isEmpty ? 'Walk-in (Draft)' : _customerName,
+      customerPhone: _customerPhone,
+      deliveryAddress: _deliveryAddress,
+      subtotal: subtotal,
+      tax: tax,
+      deliveryFee: _deliveryFee,
+      total: total,
+      paymentMethod: _paymentMethod,
+      paymentStatus: 'unpaid',
+      status: 'draft',
+      synced: false,
+      createdAt: DateTime.now().toIso8601String(),
+      items: List.from(_cart),
+    );
+
+    _drafts.insert(0, draft);
+    clearCart();
+    notifyListeners();
+  }
+
+  void loadDraft(OrderModel draft) {
+    _cart = List.from(draft.items);
+    _orderType = draft.orderType;
+    _selectedTableId = draft.tableId;
+    _customerName = draft.customerName;
+    _customerPhone = draft.customerPhone ?? '';
+    _deliveryAddress = draft.deliveryAddress ?? '';
+    _deliveryFee = draft.deliveryFee;
+
+    _drafts.removeWhere((d) => d.localId == draft.localId);
+    notifyListeners();
+  }
+
+  void deleteDraft(String localId) {
+    _drafts.removeWhere((d) => d.localId == localId);
+    notifyListeners();
+  }
+
+  void updateOrder(OrderModel updated) {
+    int idx = _orders.indexWhere((o) => o.localId == updated.localId);
+    if (idx > -1) {
+      _orders[idx] = updated;
+      _dbService.saveOrder(updated);
+      notifyListeners();
+    }
+  }
+
+  // --- Order Status Management ---
+  void updateOrderStatus(String localId, String newStatus) {
+    int idx = _orders.indexWhere((o) => o.localId == localId);
+    if (idx > -1) {
+      OrderModel old = _orders[idx];
+      OrderModel updated = OrderModel(
+        localId: old.localId,
+        serverId: old.serverId,
+        tableId: old.tableId,
+        orderType: old.orderType,
+        customerName: old.customerName,
+        customerPhone: old.customerPhone,
+        deliveryAddress: old.deliveryAddress,
+        subtotal: old.subtotal,
+        tax: old.tax,
+        deliveryFee: old.deliveryFee,
+        total: old.total,
+        paymentMethod: old.paymentMethod,
+        paymentStatus: old.paymentStatus,
+        status: newStatus,
+        synced: false,
+        createdAt: old.createdAt,
+        items: old.items,
+      );
+
+      _orders[idx] = updated;
+      _dbService.saveOrder(updated);
+      notifyListeners();
+    }
+  }
+
+  void cancelOrder(String localId) {
+    updateOrderStatus(localId, 'cancelled');
+  }
+
   // --- Complete Order (Offline-First) ---
   Future<OrderModel> submitOrder() async {
     if (_cart.isEmpty) throw Exception('Cart is empty');

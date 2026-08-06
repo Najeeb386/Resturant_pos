@@ -14,10 +14,24 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> {
   final _emailController = TextEditingController(text: 'owner@restaurant.com');
   final _passwordController = TextEditingController(text: 'password');
-  final _urlController = TextEditingController(text: ApiService.baseUrl);
+  late TextEditingController _urlController;
 
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController = TextEditingController(text: ApiService.defaultBaseUrl);
+    _loadSavedUrl();
+  }
+
+  Future<void> _loadSavedUrl() async {
+    await ApiService.initUrl();
+    setState(() {
+      _urlController.text = ApiService.baseUrl;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +46,20 @@ class _LoginViewState extends State<LoginView> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('🍽️', style: TextStyle(fontSize: 64), textAlign: TextAlign.center),
+                Center(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    height: 80,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.restaurant_menu, size: 48, color: Colors.deepOrange),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'DineDesk POS',
