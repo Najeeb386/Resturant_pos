@@ -13,7 +13,7 @@ class KitchenView extends StatelessWidget {
     // 1. Exclude 'completed' and 'cancelled' (once Mark Ready is clicked, ticket is GONE!)
     // 2. Sort LATEST ON TOP (newest orders first)
     var activeOrders = provider.orders
-        .where((o) => o.status != 'completed' && o.status != 'cancelled' && o.status != 'draft')
+        .where((o) => o.status != 'completed' && o.status != 'cancelled')
         .toList();
 
     activeOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -34,7 +34,7 @@ class KitchenView extends StatelessWidget {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
                     ),
                     SizedBox(height: 4),
-                    Text('New orders will automatically appear here in real-time.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('New orders and Dine-In bills will automatically appear here in real-time.', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               )
@@ -66,7 +66,7 @@ class KitchenView extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Ticket Header - Flexible layout to prevent ANY right pixel overflow
+                          // Ticket Header
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -85,7 +85,9 @@ class KitchenView extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  order.orderType.toUpperCase(),
+                                  order.tableId != null 
+                                      ? 'TABLE ${order.tableId}'
+                                      : order.orderType.toUpperCase(),
                                   style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                                 ),
                               ),

@@ -89,59 +89,132 @@ class PosView extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final item = filteredItems[index];
                       bool hasVars = item.variants.isNotEmpty;
+                      bool isOutOfStock = item.stockQuantity <= 0;
+                      bool isLowStock = item.stockQuantity > 0 && item.stockQuantity <= 5;
 
                       return Card(
-                        elevation: 0.5,
+                        elevation: isOutOfStock ? 0 : 0.5,
+                        color: isOutOfStock ? Colors.grey.shade100 : Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.grey.shade200),
+                          side: BorderSide(color: isOutOfStock ? Colors.grey.shade300 : Colors.grey.shade200),
                         ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            if (hasVars) {
-                              _showSizeSelectorModal(context, provider, item);
-                            } else {
-                              provider.addToCart(item);
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('🍽️', style: TextStyle(fontSize: 32)),
-                                Text(
-                                  item.name,
-                                  maxLines: 2,
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                Column(
-                                  children: [
-                                    Text(
-                                      hasVars ? 'Rs ${item.price.toStringAsFixed(0)}+' : 'Rs ${item.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 13),
+                        child: Stack(
+                          children: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                if (isOutOfStock) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${item.name} is currently out of stock!'),
+                                      backgroundColor: Colors.red.shade700,
+                                      duration: const Duration(seconds: 2),
                                     ),
-                                    if (hasVars)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: Colors.purple.shade50,
-                                          borderRadius: BorderRadius.circular(6),
+                                  );
+                                  return;
+                                }
+
+                                if (hasVars) {
+                                  _showSizeSelectorModal(context, provider, item);
+                                } else {
+                                  bool success = provider.addToCart(item);
+                                  if (!success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Cannot add more ${item.name}. Maximum available stock is ${item.stockQuantity}.'),
+                                        backgroundColor: Colors.amber.shade900,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Opacity(
+                                      opacity: isOutOfStock ? 0.35 : 1.0,
+                                      child: const Text('🍽️', style: TextStyle(fontSize: 32)),
+                                    ),
+                                    Text(
+                                      item.name,
+                                      maxLines: 2,
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: isOutOfStock ? Colors.grey.shade500 : Colors.black87,
+                                      ),
+                                    ),
+                                    Column(
+                                      children: [
+                                        Text(
+                                          hasVars ? 'Rs ${item.price.toStringAsFixed(0)}+' : 'Rs ${item.price.toStringAsFixed(0)}',
+                                          style: isOutOfStock 
+                                              ? TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade400, decoration: TextDecoration.lineThrough, fontSize: 12)
+                                              : const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 13),
                                         ),
-                                        child: Text(
-                                          '${item.variants.length} Sizes',
-                                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.purple.shade800),
+                                        if (hasVars)
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: isOutOfStock ? Colors.grey.shade200 : Colors.purple.shade50,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              '${item.variants.length} Sizes',
+                                              style: TextStyle(
+                                                fontSize: 9, 
+                                                fontWeight: FontWeight.bold, 
+                                                color: isOutOfStock ? Colors.grey.shade600 : Colors.purple.shade800,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Stock Badge Top Right
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: isOutOfStock
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade600,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'OUT OF STOCK',
+                                        style: TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w900),
+                                      ),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isLowStock ? Colors.amber.shade100 : Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: isLowStock ? Colors.amber.shade300 : Colors.green.shade200),
+                                      ),
+                                      child: Text(
+                                        'Stock: ${item.stockQuantity}',
+                                        style: TextStyle(
+                                          color: isLowStock ? Colors.amber.shade900 : Colors.green.shade800,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                  ],
-                                )
-                              ],
+                                    ),
                             ),
-                          ),
+                          ],
                         ),
                       );
                     },
@@ -271,7 +344,18 @@ class PosView extends StatelessWidget {
                                 Text('${item.qty}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline, size: 22, color: Colors.deepOrange),
-                                  onPressed: () => provider.updateCartQty(item.cartKey, 1),
+                                  onPressed: () {
+                                    bool success = provider.updateCartQty(item.cartKey, 1);
+                                    if (!success) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Stock limit reached! Cannot add more.'),
+                                          backgroundColor: Colors.amber,
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
                                 ),
                               ],
                             )
@@ -480,8 +564,18 @@ class PosView extends StatelessWidget {
                     title: Text(v.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     trailing: Text('Rs ${v.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange)),
                     onTap: () {
-                      provider.addVariantToCart(item, v);
-                      Navigator.pop(context);
+                      bool success = provider.addVariantToCart(item, v);
+                      if (!success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Cannot add more ${item.name} (${v.name}). Maximum stock available is ${item.stockQuantity}.'),
+                            backgroundColor: Colors.amber.shade900,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } else {
+                        Navigator.pop(context);
+                      }
                     },
                   ),
                 )),

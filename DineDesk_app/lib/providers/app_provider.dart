@@ -102,8 +102,16 @@ class AppProvider extends ChangeNotifier {
   }
 
   // --- Cart Actions ---
-  void addToCart(MenuItem item) {
+  bool addToCart(MenuItem item) {
+    if (item.stockQuantity <= 0) return false;
+
     int existingIndex = _cart.indexWhere((c) => c.menuItemId == item.id && c.variantId == null);
+    int currentQty = existingIndex > -1 ? _cart[existingIndex].qty : 0;
+    
+    if ((currentQty + 1) > item.stockQuantity) {
+      return false; // Stock limit reached
+    }
+
     if (existingIndex > -1) {
       _cart[existingIndex].qty += 1;
     } else {
@@ -116,13 +124,22 @@ class AppProvider extends ChangeNotifier {
       ));
     }
     notifyListeners();
+    return true;
   }
 
-  void addVariantToCart(MenuItem item, MenuItemVariant variant) {
+  bool addVariantToCart(MenuItem item, MenuItemVariant variant) {
+    if (item.stockQuantity <= 0) return false;
+
     String cartKey = '${item.id}-${variant.id}';
     String name = '${item.name} (${variant.name})';
 
     int existingIndex = _cart.indexWhere((c) => c.cartKey == cartKey);
+    int currentQty = existingIndex > -1 ? _cart[existingIndex].qty : 0;
+
+    if ((currentQty + 1) > item.stockQuantity) {
+      return false; // Stock limit reached
+    }
+
     if (existingIndex > -1) {
       _cart[existingIndex].qty += 1;
     } else {
@@ -136,19 +153,37 @@ class AppProvider extends ChangeNotifier {
       ));
     }
     notifyListeners();
+    return true;
   }
 
-  void updateCartQty(String cartKey, int delta) {
+  bool updateCartQty(String cartKey, int delta) {
     int index = _cart.indexWhere((c) => c.cartKey == cartKey);
     if (index > -1) {
-      int newQty = _cart[index].qty + delta;
+      int currentQty = _cart[index].qty;
+      int newQty = currentQty + delta;
+
+      if (delta > 0) {
+        MenuItem? menuItem;
+        try {
+          menuItem = _menuItems.firstWhere((m) => m.id == _cart[index].menuItemId);
+        } catch (_) {
+          menuItem = null;
+        }
+
+        if (menuItem != null && newQty > menuItem.stockQuantity) {
+          return false; // Stock limit reached
+        }
+      }
+
       if (newQty <= 0) {
         _cart.removeAt(index);
       } else {
         _cart[index].qty = newQty;
       }
       notifyListeners();
+      return true;
     }
+    return false;
   }
 
   void clearCart() {
@@ -206,6 +241,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   List<OrderModel> _drafts = [];
+  String? _editingDraftLocalId;
 
   List<OrderModel> get drafts => _drafts;
 
@@ -213,12 +249,14 @@ class AppProvider extends ChangeNotifier {
   void saveAsDraft() {
     if (_cart.isEmpty) return;
 
-    String localId = 'DRAFT-${DateTime.now().millisecondsSinceEpoch}';
+    String localId = _editingDraftLocalId ?? 'DRAFT-${DateTime.now().millisecondsSinceEpoch}';
     OrderModel draft = OrderModel(
       localId: localId,
       tableId: _selectedTableId,
       orderType: _orderType,
-      customerName: _customerName.isEmpty ? 'Walk-in (Draft)' : _customerName,
+      customerName: _customerName.isEmpty 
+          ? (_selectedTableId != null ? 'Table $_selectedTableId (Dine-In)' : 'Walk-in (Draft)') 
+          : _customerName,
       customerPhone: _customerPhone,
       deliveryAddress: _deliveryAddress,
       subtotal: subtotal,
@@ -227,18 +265,39 @@ class AppProvider extends ChangeNotifier {
       total: total,
       paymentMethod: _paymentMethod,
       paymentStatus: 'unpaid',
-      status: 'draft',
+      status: 'pending', // Marked pending so it sends kitchen order notification!
       synced: false,
       createdAt: DateTime.now().toIso8601String(),
       items: List.from(_cart),
     );
 
-    _drafts.insert(0, draft);
+    int existingDraftIndex = _drafts.indexWhere((d) => d.localId == localId);
+    if (existingDraftIndex > -1) {
+      _drafts[existingDraftIndex] = draft;
+    } else {
+      _drafts.insert(0, draft);
+    }
+
+    int existingOrderIndex = _orders.indexWhere((o) => o.localId == localId);
+    if (existingOrderIndex > -1) {
+      _orders[existingOrderIndex] = draft;
+    } else {
+      _orders.insert(0, draft);
+    }
+
+    _dbService.saveOrder(draft);
+    _editingDraftLocalId = null;
     clearCart();
+
+    _syncService.autoSyncPendingOrders().then((_) {
+      loadLocalData();
+    });
+
     notifyListeners();
   }
 
   void loadDraft(OrderModel draft) {
+    _editingDraftLocalId = draft.localId;
     _cart = List.from(draft.items);
     _orderType = draft.orderType;
     _selectedTableId = draft.tableId;
@@ -247,12 +306,15 @@ class AppProvider extends ChangeNotifier {
     _deliveryAddress = draft.deliveryAddress ?? '';
     _deliveryFee = draft.deliveryFee;
 
-    _drafts.removeWhere((d) => d.localId == draft.localId);
     notifyListeners();
   }
 
   void deleteDraft(String localId) {
     _drafts.removeWhere((d) => d.localId == localId);
+    _orders.removeWhere((o) => o.localId == localId);
+    if (_editingDraftLocalId == localId) {
+      _editingDraftLocalId = null;
+    }
     notifyListeners();
   }
 
@@ -304,12 +366,14 @@ class AppProvider extends ChangeNotifier {
   Future<OrderModel> submitOrder() async {
     if (_cart.isEmpty) throw Exception('Cart is empty');
 
-    String localId = DateTime.now().millisecondsSinceEpoch.toString();
+    String localId = _editingDraftLocalId ?? DateTime.now().millisecondsSinceEpoch.toString();
     OrderModel order = OrderModel(
       localId: localId,
       tableId: _selectedTableId,
       orderType: _orderType,
-      customerName: _customerName.isEmpty ? 'Walk-in' : _customerName,
+      customerName: _customerName.isEmpty 
+          ? (_selectedTableId != null ? 'Table $_selectedTableId' : 'Walk-in') 
+          : _customerName,
       customerPhone: _customerPhone,
       deliveryAddress: _deliveryAddress,
       subtotal: subtotal,
@@ -325,7 +389,17 @@ class AppProvider extends ChangeNotifier {
     );
 
     await _dbService.saveOrder(order);
-    _orders.insert(0, order);
+
+    int existingIdx = _orders.indexWhere((o) => o.localId == localId);
+    if (existingIdx > -1) {
+      _orders[existingIdx] = order;
+    } else {
+      _orders.insert(0, order);
+    }
+
+    _drafts.removeWhere((d) => d.localId == localId);
+    _editingDraftLocalId = null;
+
     clearCart();
 
     // Trigger async sync if online
