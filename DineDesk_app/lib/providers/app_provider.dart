@@ -72,7 +72,7 @@ class AppProvider extends ChangeNotifier {
 
   void _startSilentPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
       refreshFromApi(silent: true);
     });
   }
@@ -352,6 +352,10 @@ class AppProvider extends ChangeNotifier {
 
   // --- Order Status Management ---
   void updateOrderStatus(String localId, String newStatus) {
+    updateOrderStatusAsync(localId, newStatus);
+  }
+
+  Future<void> updateOrderStatusAsync(String localId, String newStatus) async {
     int idx = _orders.indexWhere((o) => o.localId == localId);
     if (idx > -1) {
       OrderModel old = _orders[idx];
@@ -368,7 +372,7 @@ class AppProvider extends ChangeNotifier {
         deliveryFee: old.deliveryFee,
         total: old.total,
         paymentMethod: old.paymentMethod,
-        paymentStatus: old.paymentStatus,
+        paymentStatus: newStatus == 'completed' ? 'paid' : old.paymentStatus,
         status: newStatus,
         synced: false,
         createdAt: old.createdAt,
@@ -376,7 +380,16 @@ class AppProvider extends ChangeNotifier {
       );
 
       _orders[idx] = updated;
-      _dbService.saveOrder(updated);
+      await _dbService.saveOrder(updated);
+
+      if (old.serverId != null) {
+        await ApiService.updateOrderStatus(
+          old.serverId!, 
+          newStatus, 
+          paymentStatus: newStatus == 'completed' ? 'paid' : null,
+        );
+      }
+      await _syncService.autoSyncPendingOrders();
       notifyListeners();
     }
   }
@@ -431,5 +444,11 @@ class AppProvider extends ChangeNotifier {
     });
 
     return order;
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }

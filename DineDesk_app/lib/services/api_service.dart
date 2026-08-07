@@ -109,4 +109,23 @@ class ApiService {
       throw Exception('Order sync failed: ${response.body}');
     }
   }
+
+  static Future<bool> updateOrderStatus(int serverId, String status, {String? paymentStatus}) async {
+    try {
+      await initUrl();
+      final headers = await getHeaders();
+      final body = <String, dynamic>{'status': status};
+      if (paymentStatus != null) body['payment_status'] = paymentStatus;
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/orders/$serverId/status'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Update status error: $e');
+      return false;
+    }
+  }
 }
