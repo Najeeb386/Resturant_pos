@@ -148,6 +148,7 @@ class CartItem {
   final String name;
   final double price;
   int qty;
+  final bool isNew;
 
   CartItem({
     required this.menuItemId,
@@ -156,6 +157,7 @@ class CartItem {
     required this.name,
     required this.price,
     required this.qty,
+    this.isNew = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -165,6 +167,7 @@ class CartItem {
     'name': name,
     'price': price,
     'qty': qty,
+    'is_new': isNew ? 1 : 0,
   };
 }
 
@@ -184,6 +187,7 @@ class OrderModel {
   final String paymentStatus;
   final String status;
   final bool synced;
+  final bool isUpdated;
   final String createdAt;
   final List<CartItem> items;
 
@@ -203,6 +207,7 @@ class OrderModel {
     required this.paymentStatus,
     required this.status,
     this.synced = false,
+    this.isUpdated = false,
     required this.createdAt,
     required this.items,
   });
@@ -224,6 +229,7 @@ class OrderModel {
       paymentStatus: json['payment_status'] ?? 'paid',
       status: json['status'] ?? 'completed',
       synced: json['synced'] == 1 || json['synced'] == true || json['id'] != null,
+      isUpdated: json['is_updated'] == 1 || json['is_updated'] == true,
       createdAt: json['created_at'] ?? DateTime.now().toIso8601String(),
       items: (json['items'] as List? ?? json['order_items'] as List? ?? json['orderItems'] as List? ?? []).map((i) => CartItem(
         menuItemId: i['menu_item_id'] ?? i['id'] ?? 0,
@@ -234,6 +240,7 @@ class OrderModel {
             : (i['name'] ?? i['notes'] ?? 'Item'),
         price: double.tryParse(i['price']?.toString() ?? '0') ?? 0.0,
         qty: i['quantity'] ?? i['qty'] ?? 1,
+        isNew: i['is_new'] == 1 || i['is_new'] == true,
       )).toList(),
     );
   }

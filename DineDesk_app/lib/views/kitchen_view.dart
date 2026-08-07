@@ -236,18 +236,31 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
     }
   }
 
+  bool _isConfirming = false;
+
   @override
   Widget build(BuildContext context) {
-    Color themeColor = widget.isPreparing ? Colors.amber.shade800 : Colors.red;
-    String statusText = widget.isPreparing ? 'PREPARING' : 'PENDING';
+    bool isUpdated = widget.order.isUpdated;
+    Color themeColor = isUpdated
+        ? const Color(0xFF9333EA)
+        : widget.isPreparing
+            ? Colors.amber.shade800
+            : Colors.red;
+
+    String statusText = isUpdated
+        ? 'UPDATED'
+        : widget.isPreparing
+            ? 'PREPARING'
+            : 'PENDING';
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: isUpdated ? Border.all(color: const Color(0xFFC084FC), width: 1.5) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: isUpdated ? const Color(0xFF9333EA).withOpacity(0.12) : Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -270,7 +283,7 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top Row: #210 NEW PENDING
+                    // Top Row: #210 NEW PENDING / ITEMS ADDED UPDATED
                     Row(
                       children: [
                         Text(
@@ -282,38 +295,64 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // NEW Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF1F2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'NEW',
-                            style: TextStyle(
-                              color: Color(0xFFE11D48),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                        if (isUpdated)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9333EA),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.warning_amber_rounded, size: 12, color: Colors.white),
+                                SizedBox(width: 3),
+                                Text(
+                                  'ITEMS ADDED',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'NEW',
+                              style: TextStyle(
+                                color: Color(0xFFE11D48),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
                         const Spacer(),
-                        // Status Badge (PENDING / PREPARING)
+                        // Status Badge (UPDATED / PENDING / PREPARING)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: widget.isPreparing
-                                ? Colors.amber.shade50
-                                : const Color(0xFFFFF1F2),
+                            color: isUpdated
+                                ? const Color(0xFFFFEDD5)
+                                : widget.isPreparing
+                                    ? Colors.amber.shade50
+                                    : const Color(0xFFFFF1F2),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             statusText,
                             style: TextStyle(
-                              color: widget.isPreparing
-                                  ? Colors.amber.shade900
-                                  : const Color(0xFFBE123C),
+                              color: isUpdated
+                                  ? const Color(0xFFC2410C)
+                                  : widget.isPreparing
+                                      ? Colors.amber.shade900
+                                      : const Color(0xFFBE123C),
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.5,
@@ -356,7 +395,68 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+
+                    // Special Purple Alert Banner Box for Updated Orders
+                    if (isUpdated) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3E8FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE9D5FF)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'New items added to this table!',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF6B21A8),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: 32,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7E22CE),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: _isConfirming
+                                    ? null
+                                    : () async {
+                                        setState(() => _isConfirming = true);
+                                        try {
+                                          await widget.provider.confirmOrderUpdate(widget.order.localId);
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _isConfirming = false);
+                                          }
+                                        }
+                                      },
+                                icon: _isConfirming
+                                    ? const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.check_circle, size: 14, color: Colors.white),
+                                label: const Text(
+                                  'Confirm Changes',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
 
                     // Items Container Box
                     Expanded(
@@ -379,14 +479,14 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
+                                      color: item.isNew ? const Color(0xFF7E22CE) : const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       '${item.qty}x',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF0F172A),
+                                        color: item.isNew ? Colors.white : const Color(0xFF0F172A),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -395,10 +495,10 @@ class _KitchenTicketCardState extends State<_KitchenTicketCard> {
                                   Expanded(
                                     child: Text(
                                       item.name,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 13,
-                                        color: Color(0xFF0F172A),
+                                        color: item.isNew ? const Color(0xFF6B21A8) : const Color(0xFF0F172A),
                                       ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,

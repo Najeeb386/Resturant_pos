@@ -128,4 +128,74 @@ class ApiService {
       return false;
     }
   }
+
+  static Future<bool> confirmOrderUpdate(int serverId) async {
+    try {
+      await initUrl();
+      final headers = await getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/$serverId/confirm-update'),
+        headers: headers,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Confirm update error: $e');
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> createTable(String tableNumber, int capacity) async {
+    await initUrl();
+    final headers = await getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/tables'),
+      headers: headers,
+      body: jsonEncode({
+        'table_number': tableNumber,
+        'capacity': capacity,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create table: ${response.body}');
+    }
+  }
+
+  static Future<bool> updateTable(int id, {String? tableNumber, int? capacity, String? status}) async {
+    try {
+      await initUrl();
+      final headers = await getHeaders();
+      final body = <String, dynamic>{};
+      if (tableNumber != null) body['table_number'] = tableNumber;
+      if (capacity != null) body['capacity'] = capacity;
+      if (status != null) body['status'] = status;
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/tables/$id'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Update table error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteTable(int id) async {
+    try {
+      await initUrl();
+      final headers = await getHeaders();
+      final response = await http.delete(
+        Uri.parse('$baseUrl/tables/$id'),
+        headers: headers,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Delete table error: $e');
+      return false;
+    }
+  }
 }

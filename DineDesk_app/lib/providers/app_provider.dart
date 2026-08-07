@@ -398,6 +398,51 @@ class AppProvider extends ChangeNotifier {
     updateOrderStatus(localId, 'cancelled');
   }
 
+  Future<void> confirmOrderUpdate(String localId) async {
+    int idx = _orders.indexWhere((o) => o.localId == localId);
+    if (idx > -1) {
+      OrderModel old = _orders[idx];
+      List<CartItem> updatedItems = old.items.map((i) => CartItem(
+        menuItemId: i.menuItemId,
+        variantId: i.variantId,
+        cartKey: i.cartKey,
+        name: i.name,
+        price: i.price,
+        qty: i.qty,
+        isNew: false,
+      )).toList();
+
+      OrderModel updated = OrderModel(
+        localId: old.localId,
+        serverId: old.serverId,
+        tableId: old.tableId,
+        orderType: old.orderType,
+        customerName: old.customerName,
+        customerPhone: old.customerPhone,
+        deliveryAddress: old.deliveryAddress,
+        subtotal: old.subtotal,
+        tax: old.tax,
+        deliveryFee: old.deliveryFee,
+        total: old.total,
+        paymentMethod: old.paymentMethod,
+        paymentStatus: old.paymentStatus,
+        status: old.status,
+        synced: false,
+        isUpdated: false,
+        createdAt: old.createdAt,
+        items: updatedItems,
+      );
+
+      _orders[idx] = updated;
+      await _dbService.saveOrder(updated);
+      notifyListeners();
+
+      if (old.serverId != null) {
+        await ApiService.confirmOrderUpdate(old.serverId!);
+      }
+    }
+  }
+
   // --- Complete Order (Offline-First) ---
   Future<OrderModel> submitOrder() async {
     if (_cart.isEmpty) throw Exception('Cart is empty');
@@ -444,6 +489,64 @@ class AppProvider extends ChangeNotifier {
     });
 
     return order;
+  }
+
+  Future<TableModel> addTable(String tableNumber, int capacity) async {
+    try {
+      var response = await ApiService.createTable(tableNumber, capacity);
+      TableModel newTable;
+      if (response['table'] != null) {
+        newTable = TableModel.fromJson(response['table']);
+      } else {
+        newTable = TableModel(
+          id: DateTime.now().millisecondsSinceEpoch,
+          tableNumber: tableNumber,
+          capacity: capacity,
+          status: 'available',
+        );
+      }
+      _tables.add(newTable);
+      await _dbService.saveTables(_tables);
+      notifyListeners();
+      return newTable;
+    } catch (e) {
+      TableModel newTable = TableModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        tableNumber: tableNumber,
+        capacity: capacity,
+        status: 'available',
+      );
+      _tables.add(newTable);
+      await _dbService.saveTables(_tables);
+      notifyListeners();
+      return newTable;
+    }
+  }
+
+  Future<void> updateTable(int id, {String? tableNumber, int? capacity, String? status}) async {
+    int idx = _tables.indexWhere((t) => t.id == id);
+    if (idx > -1) {
+      TableModel old = _tables[idx];
+      TableModel updated = TableModel(
+        id: old.id,
+        tableNumber: tableNumber ?? old.tableNumber,
+        capacity: capacity ?? old.capacity,
+        status: status ?? old.status,
+      );
+      _tables[idx] = updated;
+      await _dbService.saveTables(_tables);
+      notifyListeners();
+
+      await ApiService.updateTable(id, tableNumber: tableNumber, capacity: capacity, status: status);
+    }
+  }
+
+  Future<void> deleteTable(int id) async {
+    _tables.removeWhere((t) => t.id == id);
+    await _dbService.saveTables(_tables);
+    notifyListeners();
+
+    await ApiService.deleteTable(id);
   }
 
   @override

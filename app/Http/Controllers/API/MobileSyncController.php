@@ -210,4 +210,80 @@ class MobileSyncController extends Controller
             'order' => $order,
         ]);
     }
+
+    public function confirmOrderUpdate(Request $request, $id)
+    {
+        $user = $request->user();
+        $order = Order::where('restaurant_id', $user->restaurant_id)->findOrFail($id);
+
+        $order->update(['is_updated' => false]);
+        $order->orderItems()->update(['is_new' => false]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order update confirmed successfully.',
+            'order' => $order->fresh(['orderItems.menuItem']),
+        ]);
+    }
+
+    public function createTable(Request $request)
+    {
+        $request->validate([
+            'table_number' => 'required|string',
+            'capacity' => 'nullable|integer|min:1',
+        ]);
+
+        $user = $request->user();
+        $table = \App\Models\Table::create([
+            'restaurant_id' => $user->restaurant_id,
+            'table_number' => $request->table_number,
+            'capacity' => $request->capacity ?? 4,
+            'status' => 'available',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Table created successfully.',
+            'table' => $table,
+        ]);
+    }
+
+    public function updateTable(Request $request, $id)
+    {
+        $user = $request->user();
+        $table = \App\Models\Table::where('restaurant_id', $user->restaurant_id)->findOrFail($id);
+
+        $request->validate([
+            'table_number' => 'nullable|string',
+            'capacity' => 'nullable|integer|min:1',
+            'status' => 'nullable|string|in:available,occupied,reserved',
+        ]);
+
+        $updateData = [];
+        if ($request->has('table_number')) $updateData['table_number'] = $request->table_number;
+        if ($request->has('capacity')) $updateData['capacity'] = $request->capacity;
+        if ($request->has('status')) $updateData['status'] = $request->status;
+
+        if (!empty($updateData)) {
+            $table->update($updateData);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Table updated successfully.',
+            'table' => $table,
+        ]);
+    }
+
+    public function deleteTable(Request $request, $id)
+    {
+        $user = $request->user();
+        $table = \App\Models\Table::where('restaurant_id', $user->restaurant_id)->findOrFail($id);
+        $table->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Table deleted successfully.',
+        ]);
+    }
 }

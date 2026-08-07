@@ -43,5 +43,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/bootstrap', [\App\Http\Controllers\API\MobileSyncController::class, 'bootstrap']);
         Route::post('/sync/orders', [\App\Http\Controllers\API\MobileSyncController::class, 'syncOrders']);
         Route::patch('/orders/{id}/status', [\App\Http\Controllers\API\MobileSyncController::class, 'updateOrderStatus']);
+        Route::post('/orders/{id}/confirm-update', [\App\Http\Controllers\API\MobileSyncController::class, 'confirmOrderUpdate']);
+        Route::post('/tables', [\App\Http\Controllers\API\MobileSyncController::class, 'createTable']);
+        Route::patch('/tables/{id}', [\App\Http\Controllers\API\MobileSyncController::class, 'updateTable']);
+        Route::delete('/tables/{id}', [\App\Http\Controllers\API\MobileSyncController::class, 'deleteTable']);
     });
 });
