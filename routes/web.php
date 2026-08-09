@@ -268,8 +268,10 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    Route::post('/logout', function () {
+    Route::post('/logout', function (\Illuminate\Http\Request $request) {
         auth()->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
         return redirect('/login');
     });
 });
