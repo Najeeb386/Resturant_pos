@@ -27,6 +27,10 @@ Route::get('/login', function () {
     return Inertia::render('Login');
 })->middleware('guest')->name('login');
 
+// Public Customer QR Table Digital Self-Ordering Routes
+Route::get('/table-order/{restaurant}/{table}', [\App\Http\Controllers\CustomerOrderController::class, 'showMenu'])->name('customer.qr.menu');
+Route::post('/table-order/checkout', [\App\Http\Controllers\CustomerOrderController::class, 'storeOrder'])->name('customer.qr.checkout');
+
 Route::post('/login', [App\Http\Controllers\API\AuthController::class, 'login'])->middleware('guest');
 
 Route::get('/register', function () {

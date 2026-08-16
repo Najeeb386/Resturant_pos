@@ -22,4 +22,12 @@ class SubscriptionPlan extends Model
         'features' => 'array',
         'price' => 'decimal:2',
     ];
+
+    public function hasFeature(string $feature): bool
+    {
+        if (empty($this->features) || !is_array($this->features)) {
+            return false;
+        }
+        return in_array($feature, $this->features);
+    }
 }

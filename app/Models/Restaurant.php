@@ -45,4 +45,18 @@ class Restaurant extends Model
     {
         return $this->hasOne(Subscription::class);
     }
+
+    public function hasFeature(string $feature): bool
+    {
+        $subscription = $this->subscription()->with('plan')->first();
+        if (!$subscription) {
+            return true; // Default fallback if no subscription record
+        }
+        if ($subscription->status !== 'active') {
+            return false;
+        }
+        
+        $plan = $subscription->plan;
+        return $plan ? $plan->hasFeature($feature) : false;
+    }
 }

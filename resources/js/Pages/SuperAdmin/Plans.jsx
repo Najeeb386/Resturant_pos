@@ -9,6 +9,7 @@ import { Dialog } from '@headlessui/react';
 const AVAILABLE_FEATURES = [
     { id: 'pos_billing', label: 'POS Billing & Checkout', description: 'Access to POS terminal and quick order creation' },
     { id: 'tables', label: 'Table Management', description: 'Floor plans, table creation, and live status tracking' },
+    { id: 'qr_ordering', label: 'QR Table Digital Self-Ordering', description: 'Table QR code generation & customer mobile self-ordering' },
     { id: 'kitchen', label: 'Kitchen Display System (KDS)', description: 'Real-time kitchen order screen for chefs' },
     { id: 'orders', label: 'Order History & KOT Receipts', description: 'Order history, payment status, and printing' },
     { id: 'menu', label: 'Menu & Category Management', description: 'Manage food items, prices, and categories' },
