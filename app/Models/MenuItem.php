@@ -8,7 +8,7 @@ class MenuItem extends Model
 {
     use \App\Traits\BelongsToRestaurant;
 
-    protected $fillable = ['restaurant_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'stock_quantity', 'image', 'available', 'is_deal'];
+    protected $fillable = ['restaurant_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'stock_quantity', 'image', 'model_3d', 'available', 'is_deal'];
 
     protected $casts = [
         'available' => 'boolean',

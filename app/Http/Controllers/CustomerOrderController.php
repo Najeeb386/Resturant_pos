@@ -24,6 +24,7 @@ class CustomerOrderController extends Controller
         $table = Table::where('restaurant_id', $restaurantId)->where('id', $tableId)->firstOrFail();
 
         $hasQrOrdering = $restaurant->hasFeature('qr_ordering');
+        $has3dFeature = $restaurant->hasFeature('ai_3d_scanner');
 
         $categories = MenuCategory::where('restaurant_id', $restaurantId)
             ->with(['menuItems' => function ($q) {
@@ -54,6 +55,7 @@ class CustomerOrderController extends Controller
             ],
             'categories' => $categories,
             'hasQrOrdering' => $hasQrOrdering,
+            'has3dFeature' => $has3dFeature,
         ]);
     }
 

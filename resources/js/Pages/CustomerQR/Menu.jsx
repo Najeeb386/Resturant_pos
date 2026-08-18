@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
+import ThreedViewer from '../../Components/3D/ThreedViewer';
 import { 
     UtensilsCrossed, 
     Search, 
@@ -14,17 +15,56 @@ import {
     AlertTriangle,
     ChefHat,
     Sparkles,
-    PhoneCall
+    PhoneCall,
+    Box,
+    RotateCw,
+    Eye,
+    Layers,
+    Camera
 } from 'lucide-react';
 
-export default function CustomerMenu({ restaurant, table, categories = [], hasQrOrdering = true, flash = {} }) {
+export default function CustomerMenu({ restaurant, table, categories = [], hasQrOrdering = true, has3dFeature = true, flash = {} }) {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [cart, setCart] = useState([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [placedOrder, setPlacedOrder] = useState(flash?.order || null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [active3dItem, setActive3dItem] = useState(null);
+    const [isArCameraActive, setIsArCameraActive] = useState(false);
     const categoryRef = useRef(null);
+    const videoRef = useRef(null);
+
+    const startArCamera = async () => {
+        try {
+            setIsArCameraActive(true);
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (err) {
+            console.log("Camera access blocked or unavailable.");
+        }
+    };
+
+    const stopArCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const tracks = videoRef.current.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+        setIsArCameraActive(false);
+    };
+
+    // Auto load Google <model-viewer> web component for 3D GLB models
+    useEffect(() => {
+        if (!document.getElementById('model-viewer-script')) {
+            const script = document.createElement('script');
+            script.id = 'model-viewer-script';
+            script.type = 'module';
+            script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js';
+            document.head.appendChild(script);
+        }
+    }, []);
 
     const scrollCategories = (direction) => {
         if (categoryRef.current) {
@@ -325,45 +365,58 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                     </div>
                                 </div>
 
-                                {/* Add / Qty Controls */}
-                                {hasQrOrdering && (
-                                    <div className="shrink-0">
-                                        {isOutOfStock ? (
-                                            <button 
-                                                disabled
-                                                className="bg-slate-100 text-slate-400 text-xs font-bold px-3 py-2 rounded-xl cursor-not-allowed"
-                                            >
-                                                Sold Out
-                                            </button>
-                                        ) : qty === 0 ? (
-                                            <button 
-                                                onClick={() => addToCart(item)}
-                                                className="text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow-sm active:scale-95 transition-all"
-                                                style={{ backgroundColor: themeColor, boxShadow: `0 4px 12px ${themeColor}35` }}
-                                            >
-                                                <Plus className="w-3.5 h-3.5" /> Add
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 gap-2">
+                                {/* Add & 3D View Controls */}
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                    {has3dFeature && (
+                                        <button 
+                                            onClick={() => setActive3dItem(item)}
+                                            title="View item in interactive 3D stage"
+                                            className="bg-slate-900 hover:bg-black text-amber-400 border border-slate-700 text-xs font-bold px-2.5 py-2 rounded-xl flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                                        >
+                                            <Box className="w-3.5 h-3.5 text-amber-400" />
+                                            <span className="text-[11px] tracking-wide font-extrabold">3D</span>
+                                        </button>
+                                    )}
+
+                                    {hasQrOrdering && (
+                                        <>
+                                            {isOutOfStock ? (
                                                 <button 
-                                                    onClick={() => updateQuantity(item.id, -1)}
-                                                    className="w-6 h-6 bg-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
-                                                    style={{ color: themeColor }}
+                                                    disabled
+                                                    className="bg-slate-100 text-slate-400 text-xs font-bold px-3 py-2 rounded-xl cursor-not-allowed"
                                                 >
-                                                    <Minus className="w-3 h-3" />
+                                                    Sold Out
                                                 </button>
-                                                <span className="text-xs font-extrabold w-4 text-center" style={{ color: themeColor }}>{qty}</span>
+                                            ) : qty === 0 ? (
                                                 <button 
-                                                    onClick={() => updateQuantity(item.id, 1)}
-                                                    className="w-6 h-6 text-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
-                                                    style={{ backgroundColor: themeColor }}
+                                                    onClick={() => addToCart(item)}
+                                                    className="text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                                    style={{ backgroundColor: themeColor, boxShadow: `0 4px 12px ${themeColor}35` }}
                                                 >
-                                                    <Plus className="w-3 h-3" />
+                                                    <Plus className="w-3.5 h-3.5" /> Add
                                                 </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                            ) : (
+                                                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 gap-2">
+                                                    <button 
+                                                        onClick={() => updateQuantity(item.id, -1)}
+                                                        className="w-6 h-6 bg-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
+                                                        style={{ color: themeColor }}
+                                                    >
+                                                        <Minus className="w-3 h-3" />
+                                                    </button>
+                                                    <span className="text-xs font-extrabold w-4 text-center" style={{ color: themeColor }}>{qty}</span>
+                                                    <button 
+                                                        onClick={() => updateQuantity(item.id, 1)}
+                                                        className="w-6 h-6 text-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
+                                                        style={{ backgroundColor: themeColor }}
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
@@ -542,6 +595,109 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         >
                             Back to Menu
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Interactive 3D & AR Table Showcase Modal */}
+            {active3dItem && (
+                <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-slate-900 text-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-800 animate-scale-up">
+                        {/* 3D Header */}
+                        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl">
+                                    <Box className="w-5 h-5 text-amber-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm text-white drop-shadow-xs">{active3dItem.name}</h3>
+                                    <div className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                                        <RotateCw className="w-3 h-3" /> {isArCameraActive ? 'Live AR Camera Table Projection' : 'Interactive 3D Stage (360° View)'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={isArCameraActive ? stopArCamera : startArCamera}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                                        isArCameraActive ? 'bg-red-600 text-white animate-pulse' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                                    }`}
+                                >
+                                    <Camera className="w-3.5 h-3.5" />
+                                    {isArCameraActive ? 'Close AR' : 'AR Table View'}
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        stopArCamera();
+                                        setActive3dItem(null);
+                                    }} 
+                                    className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 3D / AR View Canvas */}
+                        <div className="relative h-80 bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center p-2 overflow-hidden select-none border-b border-slate-800">
+                            {/* Live AR Camera Feed Backdrop */}
+                            {isArCameraActive && (
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    className="absolute inset-0 w-full h-full object-cover z-0"
+                                />
+                            )}
+
+                            <div className="relative z-10 w-full h-full">
+                                <model-viewer
+                                    src={active3dItem.model_3d ? `/storage/${active3dItem.model_3d}` : '/models/default_food_3d.glb'}
+                                    alt={active3dItem.name}
+                                    ar
+                                    ar-modes="webxr scene-viewer quick-look"
+                                    auto-rotate
+                                    camera-controls
+                                    shadow-intensity="2"
+                                    environment-image="neutral"
+                                    exposure="1.2"
+                                    style={{ width: '100%', height: '100%', minHeight: '300px', display: 'block' }}
+                                ></model-viewer>
+                            </div>
+                        </div>
+
+                        {/* 3D Footer Details & Add Button */}
+                        <div className="p-5 border-t border-slate-800 space-y-4 bg-slate-900">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Item Price</span>
+                                    <div className="text-xl font-extrabold" style={{ color: themeColor }}>
+                                        {currencySymbol}{Number(active3dItem.price).toFixed(2)}
+                                    </div>
+                                </div>
+                                {hasQrOrdering && (
+                                    <button
+                                        onClick={() => {
+                                            addToCart(active3dItem);
+                                            setActive3dItem(null);
+                                            setIsCartOpen(true);
+                                        }}
+                                        className="text-white font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg active:scale-95 transition-all"
+                                        style={{ backgroundColor: themeColor, boxShadow: `0 4px 16px ${themeColor}50` }}
+                                    >
+                                        <Plus className="w-4 h-4" /> Add to Order
+                                    </button>
+                                )}
+                            </div>
+
+                            {active3dItem.description && (
+                                <div className="text-xs text-slate-400 leading-relaxed bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
+                                    {active3dItem.description}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

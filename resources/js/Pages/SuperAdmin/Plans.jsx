@@ -17,6 +17,7 @@ const AVAILABLE_FEATURES = [
     { id: 'expenses', label: 'Expense Tracking', description: 'Track operating expenses and expense categories' },
     { id: 'reports', label: 'Analytics & Sales Reports', description: 'Sales metrics, revenue trends, and performance reports' },
     { id: 'staff', label: 'Staff Management', description: 'Manage waitstaff, cashiers, and kitchen staff accounts' },
+    { id: 'ai_3d_scanner', label: 'AI 3D Menu Studio & AR Table View', description: 'AI 360° dish 3D model generator & customer AR camera projection on dining tables' },
 ];
 
 export default function Plans({ plans = [] }) {

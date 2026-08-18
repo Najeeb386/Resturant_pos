@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Menu, X, LogOut, LayoutDashboard, ShoppingBag, Utensils, Table, ChefHat, Package, BookOpen, Receipt, BarChart3, Users, Settings, Lock, AlertTriangle, ArrowRight, Mail } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, ShoppingBag, Utensils, Table, ChefHat, Package, BookOpen, Receipt, BarChart3, Users, Settings, Lock, AlertTriangle, ArrowRight, Mail, Box } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
     const { auth, tenantSubscription } = usePage().props;
@@ -19,6 +19,7 @@ export default function AdminLayout({ children }) {
         { name: 'Kitchen', href: '/kitchen', roles: [2, 5], feature: 'kitchen', icon: ChefHat },
         { name: 'Inventory & Stock', href: '/inventory', roles: [2, 3, 5], feature: 'inventory', icon: Package },
         { name: 'Menu', href: '/menu', roles: [2, 3, 4], feature: 'menu', icon: BookOpen },
+        { name: 'AI 3D Menu Studio', href: '/menu/3d-studio', roles: [2, 3, 4], feature: 'ai_3d_scanner', icon: Box },
         { name: 'Expenses', href: '/expenses', roles: [2], feature: 'expenses', icon: Utensils },
         { name: 'Reports', href: '/reports', roles: [2], feature: 'reports', icon: BarChart3 },
         { name: 'Staff', href: '/staff', roles: [2], feature: 'staff', icon: Users },

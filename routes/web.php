@@ -121,6 +121,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'updateItem'])->name('menu.item.update');
     Route::delete('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'destroyItem'])->name('menu.item.destroy');
 
+    // AI 3D Menu Studio
+    Route::get('/menu/3d-studio', [\App\Http\Controllers\ThreedStudioController::class, 'index'])->name('menu.3d-studio');
+    Route::post('/menu/3d-studio/generate', [\App\Http\Controllers\ThreedStudioController::class, 'generate3dModel'])->name('menu.3d-studio.generate');
+    Route::delete('/menu/3d-studio/{menuItem}', [\App\Http\Controllers\ThreedStudioController::class, 'destroy3dModel'])->name('menu.3d-studio.destroy');
+
     // Expenses
     Route::get('/expenses', [\App\Http\Controllers\ExpenseController::class, 'index']);
     Route::post('/expenses', [\App\Http\Controllers\ExpenseController::class, 'store']);
