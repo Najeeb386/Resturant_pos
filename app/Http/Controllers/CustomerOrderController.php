@@ -77,44 +77,79 @@ class CustomerOrderController extends Controller
             return back()->withErrors(['message' => 'QR Ordering is not enabled for this restaurant.']);
         }
 
-        $subtotal = 0;
+        // Check if an open bill already exists for this table
+        $existingOrder = Order::where('restaurant_id', $restaurant->id)
+            ->where('table_id', $table->id)
+            ->where('payment_status', 'unpaid')
+            ->whereIn('status', ['draft', 'pending', 'preparing'])
+            ->latest()
+            ->first();
+
+        $addedSubtotal = 0;
         foreach ($request->items as $item) {
-            $subtotal += ($item['unit_price'] * $item['quantity']);
+            $addedSubtotal += ($item['unit_price'] * $item['quantity']);
         }
 
         $taxPercentage = (float)($restaurant->tax_percentage ?? 0);
-        $taxAmount = round(($subtotal * $taxPercentage) / 100, 2);
-        $totalAmount = $subtotal + $taxAmount;
 
-        $orderNumber = 'QR-' . strtoupper(Str::random(6));
+        if ($existingOrder) {
+            $order = $existingOrder;
+            $newSubtotal = (float)$order->subtotal + $addedSubtotal;
+            $newTax = round(($newSubtotal * $taxPercentage) / 100, 2);
+            $newTotal = $newSubtotal + $newTax;
 
-        $order = Order::create([
-            'restaurant_id' => $restaurant->id,
-            'table_id' => $table->id,
-            'order_type' => 'dine_in',
-            'order_number' => $orderNumber,
-            'customer_name' => $request->customer_name ?: ('Table ' . $table->table_number . ' Guest'),
-            'customer_phone' => $request->customer_phone,
-            'subtotal' => $subtotal,
-            'tax' => $taxAmount,
-            'total' => $totalAmount,
-            'status' => 'pending',
-            'payment_status' => 'unpaid',
-            'payment_method' => 'cash',
-            'notes' => $request->notes,
-            'is_updated' => false,
-        ]);
+            $order->update([
+                'order_type' => 'dine_in',
+                'customer_name' => $request->customer_name ?: ($order->customer_name ?: 'Table ' . $table->table_number . ' Guest'),
+                'customer_phone' => $request->customer_phone ?: $order->customer_phone,
+                'subtotal' => $newSubtotal,
+                'tax' => $newTax,
+                'total' => $newTotal,
+                'status' => 'pending',
+                'is_updated' => true,
+                'updated_at' => now(),
+            ]);
+        } else {
+            $taxAmount = round(($addedSubtotal * $taxPercentage) / 100, 2);
+            $totalAmount = $addedSubtotal + $taxAmount;
+            $orderNumber = 'QR-' . strtoupper(Str::random(6));
+
+            $order = Order::create([
+                'restaurant_id' => $restaurant->id,
+                'table_id' => $table->id,
+                'order_type' => 'dine_in',
+                'order_number' => $orderNumber,
+                'customer_name' => $request->customer_name ?: ('Table ' . $table->table_number . ' Guest'),
+                'customer_phone' => $request->customer_phone,
+                'subtotal' => $addedSubtotal,
+                'tax' => $taxAmount,
+                'total' => $totalAmount,
+                'status' => 'pending',
+                'payment_status' => 'unpaid',
+                'payment_method' => 'cash',
+                'notes' => $request->notes,
+                'is_updated' => true,
+            ]);
+        }
 
         foreach ($request->items as $item) {
             $itemTotal = $item['unit_price'] * $item['quantity'];
+            $menuItem = MenuItem::find($item['menu_item_id']);
+
             OrderItem::create([
                 'order_id' => $order->id,
                 'menu_item_id' => $item['menu_item_id'],
                 'quantity' => $item['quantity'],
+                'is_new' => true,
                 'price' => $item['unit_price'],
-                'total' => $itemTotal,
+                'cost_price' => $menuItem ? $menuItem->cost_price : 0,
                 'notes' => $item['notes'] ?? ($item['variant_name'] ?? null),
             ]);
+
+            if ($menuItem && $menuItem->stock_quantity > 0) {
+                $decrementAmount = min($item['quantity'], $menuItem->stock_quantity);
+                $menuItem->decrement('stock_quantity', $decrementAmount);
+            }
         }
 
         // Mark table as occupied
