@@ -31,14 +31,15 @@ class ThreedStudioController extends Controller
     }
 
     /**
-     * Process uploaded multi-angle dish photos and synthesize an AI 3D GLB model.
+     * Process uploaded multi-angle dish photos or direct 3D file (.glb/.gltf) to map to menu item.
      */
     public function generate3dModel(Request $request)
     {
         $request->validate([
             'menu_item_id' => 'required|exists:menu_items,id',
-            'photos' => 'required|array|min:3',
-            'photos.*' => 'image|max:10240', // 10MB max per photo
+            'photos' => 'nullable|array',
+            'photos.*' => 'nullable',
+            'model_file' => 'nullable|file|max:51200', // 50MB max 3D model
         ]);
 
         $restaurant = auth()->user()->restaurant;
@@ -46,14 +47,37 @@ class ThreedStudioController extends Controller
             ->where('id', $request->menu_item_id)
             ->firstOrFail();
 
-        // 1. Save multi-angle source photos
-        $uploadedPaths = [];
-        foreach ($request->file('photos') as $index => $photo) {
-            $path = $photo->store("restaurants/{$restaurant->id}/3d-scans/{$menuItem->id}", 'public');
-            $uploadedPaths[] = $path;
+        // Option B: Direct 3D Model File Upload (.glb or .gltf)
+        if ($request->hasFile('model_file')) {
+            $file = $request->file('model_file');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $gltfFileName = "restaurants/{$restaurant->id}/models/dish_{$menuItem->id}_" . time() . '.' . ($ext === 'glb' ? 'glb' : 'gltf');
+            
+            $fileContent = file_get_contents($file->getRealPath());
+            Storage::disk('public')->put($gltfFileName, $fileContent);
+            
+            $destPublicPath = public_path('storage/' . $gltfFileName);
+            @mkdir(dirname($destPublicPath), 0777, true);
+            @file_put_contents($destPublicPath, $fileContent);
+
+            $menuItem->update(['model_3d' => $gltfFileName]);
+
+            return redirect()->back()->with([
+                'message' => "Custom 3D Model file successfully uploaded and mapped to '{$menuItem->name}'!",
+                'model_3d' => $gltfFileName
+            ]);
         }
 
-        // 2. Synthesize & Generate 3D glTF model asset
+        // Option A: Save multi-angle source photos
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $index => $photo) {
+                if ($photo) {
+                    $photo->store("restaurants/{$restaurant->id}/3d-scans/{$menuItem->id}", 'public');
+                }
+            }
+        }
+
+        // Synthesize & Generate 3D glTF model asset
         $gltfFileName = "restaurants/{$restaurant->id}/models/dish_{$menuItem->id}_" . time() . ".gltf";
         
         $templatePath = public_path('models/default_food_3d.gltf');
@@ -67,7 +91,7 @@ class ThreedStudioController extends Controller
             @file_put_contents($destPublicPath, $gltfContent);
         }
 
-        // 3. Map generated 3D model to menu item record
+        // Map generated 3D model to menu item record
         $menuItem->update([
             'model_3d' => $gltfFileName
         ]);

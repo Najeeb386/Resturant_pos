@@ -41,9 +41,15 @@ export default function ThreedStudio({ menuItems = [], hasFeature = true }) {
         }
     }, []);
 
+    const [studioMode, setStudioMode] = useState('photos'); // 'photos' | 'upload_3d'
+    const [guidedCameraSlot, setGuidedCameraSlot] = useState(null); // null | 0 | 1 | 2 | 3
+    const guidedVideoRef = useRef(null);
+    const guidedCanvasRef = useRef(null);
+
     const { data, setData, post, processing, errors, progress } = useForm({
         menu_item_id: selectedItem,
         photos: [],
+        model_file: null,
     });
 
     const angleLabels = [
@@ -52,6 +58,67 @@ export default function ThreedStudio({ menuItems = [], hasFeature = true }) {
         { label: 'Left Side', icon: '👈', desc: 'Left profile angle of the dish' },
         { label: 'Right Side', icon: '👉', desc: 'Right profile angle of the dish' },
     ];
+
+    const openGuidedCamera = (slotIdx) => {
+        setGuidedCameraSlot(slotIdx);
+    };
+
+    const closeGuidedCamera = () => {
+        if (guidedVideoRef.current && guidedVideoRef.current.srcObject) {
+            const tracks = guidedVideoRef.current.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+            guidedVideoRef.current.srcObject = null;
+        }
+        setGuidedCameraSlot(null);
+    };
+
+    useEffect(() => {
+        let streamTrack = null;
+        if (guidedCameraSlot !== null) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+                .then(stream => {
+                    streamTrack = stream;
+                    if (guidedVideoRef.current) {
+                        guidedVideoRef.current.srcObject = stream;
+                        guidedVideoRef.current.play().catch(e => console.log(e));
+                    }
+                })
+                .catch(err => {
+                    console.log("Guided camera error:", err);
+                    alert("Please allow camera access to capture 360° dish photos.");
+                    setGuidedCameraSlot(null);
+                });
+        }
+        return () => {
+            if (streamTrack) {
+                streamTrack.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [guidedCameraSlot]);
+
+    const captureGuidedPhoto = () => {
+        if (!guidedVideoRef.current || !guidedCanvasRef.current || guidedCameraSlot === null) return;
+
+        const video = guidedVideoRef.current;
+        const canvas = guidedCanvasRef.current;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            const file = new File([blob], `angle_${guidedCameraSlot + 1}.jpg`, { type: 'image/jpeg' });
+            handlePhotoChange(guidedCameraSlot, file);
+
+            if (guidedCameraSlot < 3) {
+                setGuidedCameraSlot(guidedCameraSlot + 1);
+            } else {
+                closeGuidedCamera();
+            }
+        }, 'image/jpeg', 0.92);
+    };
 
     const handlePhotoChange = (index, file) => {
         if (!file) return;
@@ -80,6 +147,11 @@ export default function ThreedStudio({ menuItems = [], hasFeature = true }) {
     const handleItemSelect = (id) => {
         setSelectedItem(id);
         setData('menu_item_id', id);
+
+        const found = menuItems.find(i => String(i.id) === String(id));
+        if (found) {
+            setPreviewModalItem(found);
+        }
     };
 
     const handlePreviewClick = (item) => {
@@ -184,78 +256,187 @@ export default function ThreedStudio({ menuItems = [], hasFeature = true }) {
                                         </select>
                                     </div>
 
-                                    {/* Step 2: Upload 360 Photo Angles */}
+                                    {/* Step 2: Choose 3D Creation Method */}
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                        <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
                                             <span className="w-6 h-6 bg-amber-500 text-white rounded-full text-xs font-black flex items-center justify-center">2</span>
-                                            Capture & Upload 360° Angle Photos
+                                            Choose 3D Model Creation Method
                                         </label>
-                                        <p className="text-xs text-gray-500 mb-4">Take 3 to 4 clear photos of the dish from different sides under good lighting.</p>
 
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                            {angleLabels.map((angle, idx) => (
-                                                <div 
-                                                    key={idx}
-                                                    className={`border-2 border-dashed rounded-2xl p-3 text-center flex flex-col items-center justify-center h-44 relative transition-all group ${
-                                                        photoPreviews[idx] ? 'border-amber-500 bg-amber-50/30' : 'border-gray-200 hover:border-amber-400 bg-gray-50/50'
-                                                    }`}
-                                                >
-                                                    {photoPreviews[idx] ? (
-                                                        <div className="w-full h-full relative rounded-xl overflow-hidden">
-                                                            <img src={photoPreviews[idx]} alt={angle.label} className="w-full h-full object-cover" />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemovePhoto(idx)}
-                                                                className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full shadow-md hover:bg-red-700 transition-colors"
-                                                            >
-                                                                <X className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3 mb-5">
+                                            <button
+                                                type="button"
+                                                onClick={() => setStudioMode('photos')}
+                                                className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
+                                                    studioMode === 'photos'
+                                                        ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 text-amber-950 font-bold'
+                                                        : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-gray-50/50'
+                                                }`}
+                                            >
+                                                <div className={`p-2.5 rounded-xl ${studioMode === 'photos' ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                                    <Camera className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-extrabold">Option A: Guided AI Scanner</div>
+                                                    <div className="text-[10px] text-gray-500 font-normal">Snap 360° photos with guided camera</div>
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setStudioMode('upload_3d')}
+                                                className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
+                                                    studioMode === 'upload_3d'
+                                                        ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 text-amber-950 font-bold'
+                                                        : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-gray-50/50'
+                                                }`}
+                                            >
+                                                <div className={`p-2.5 rounded-xl ${studioMode === 'upload_3d' ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                                    <Box className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-extrabold">Option B: Direct 3D Upload</div>
+                                                    <div className="text-[10px] text-gray-500 font-normal">Upload custom .glb / .gltf file</div>
+                                                </div>
+                                            </button>
+                                        </div>
+
+                                        {/* Option A: Guided 360° Photo Angles */}
+                                        {studioMode === 'photos' && (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-xs text-gray-500">Capture 360° angle photos using live camera or upload photo files.</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openGuidedCamera(0)}
+                                                        className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 transition-all"
+                                                    >
+                                                        <Camera className="w-3.5 h-3.5" /> Launch Guided Camera
+                                                    </button>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    {angleLabels.map((angle, idx) => (
                                                         <div 
-                                                            onClick={() => fileInputRefs[idx].current?.click()} 
-                                                            className="cursor-pointer flex flex-col items-center justify-center w-full h-full p-2"
+                                                            key={idx}
+                                                            className={`border-2 border-dashed rounded-2xl p-2.5 text-center flex flex-col items-center justify-center h-48 relative transition-all group ${
+                                                                photoPreviews[idx] ? 'border-amber-500 bg-amber-50/30' : 'border-gray-200 hover:border-amber-400 bg-gray-50/50'
+                                                            }`}
                                                         >
-                                                            <span className="text-2xl mb-1">{angle.icon}</span>
-                                                            <span className="text-xs font-bold text-gray-800">{angle.label}</span>
-                                                            <span className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{angle.desc}</span>
-                                                            <span className="mt-2 text-[10px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                                                                <Camera className="w-2.5 h-2.5" /> Snap Photo
+                                                            {photoPreviews[idx] ? (
+                                                                <div className="w-full h-full relative rounded-xl overflow-hidden">
+                                                                    <img src={photoPreviews[idx]} alt={angle.label} className="w-full h-full object-cover" />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemovePhoto(idx)}
+                                                                        className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full shadow-md hover:bg-red-700 transition-colors"
+                                                                    >
+                                                                        <X className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center justify-between w-full h-full p-1">
+                                                                    <div className="text-center pt-2">
+                                                                        <span className="text-2xl block mb-1">{angle.icon}</span>
+                                                                        <span className="text-xs font-bold text-gray-800">{angle.label}</span>
+                                                                        <span className="text-[9px] text-gray-400 line-clamp-1 mt-0.5">{angle.desc}</span>
+                                                                    </div>
+
+                                                                    <div className="flex flex-col gap-1 w-full mt-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => openGuidedCamera(idx)}
+                                                                            className="w-full py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[10px] flex items-center justify-center gap-1 shadow-xs transition-colors"
+                                                                        >
+                                                                            <Camera className="w-3 h-3" /> Snap Live
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => fileInputRefs[idx].current?.click()}
+                                                                            className="w-full py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-[10px] flex items-center justify-center gap-1 transition-colors"
+                                                                        >
+                                                                            <Upload className="w-3 h-3" /> Upload
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <input 
+                                                                type="file" 
+                                                                ref={fileInputRefs[idx]}
+                                                                accept="image/*" 
+                                                                className="hidden" 
+                                                                onChange={e => handlePhotoChange(idx, e.target.files[0])}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Option B: Direct 3D File Upload (.glb / .gltf) */}
+                                        {studioMode === 'upload_3d' && (
+                                            <div className="space-y-4 border-2 border-dashed border-amber-300 bg-amber-50/20 rounded-2xl p-6 text-center">
+                                                <Box className="w-12 h-12 text-amber-500 mx-auto" />
+                                                <div>
+                                                    <h4 className="font-extrabold text-sm text-gray-900">Upload 3D Model File (.glb or .gltf)</h4>
+                                                    <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                                                        Select a 3D GLB or glTF mesh file created by your 3D designer or 3D scanner app.
+                                                    </p>
+                                                </div>
+
+                                                <label className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer shadow-md transition-all">
+                                                    <Upload className="w-4 h-4" />
+                                                    Browse 3D Model File
+                                                    <input
+                                                        type="file"
+                                                        accept=".glb,.gltf"
+                                                        className="hidden"
+                                                        onChange={e => setData('model_file', e.target.files[0])}
+                                                    />
+                                                </label>
+
+                                                {data.model_file && (
+                                                    <div className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between text-xs max-w-md mx-auto shadow-xs">
+                                                        <div className="flex items-center gap-2 font-bold text-gray-800 truncate">
+                                                            <Box className="w-4 h-4 text-amber-500 shrink-0" />
+                                                            <span className="truncate">{data.model_file.name}</span>
+                                                            <span className="text-[10px] text-gray-400 font-normal shrink-0">
+                                                                ({(data.model_file.size / (1024 * 1024)).toFixed(2)} MB)
                                                             </span>
                                                         </div>
-                                                    )}
-
-                                                    <input 
-                                                        type="file" 
-                                                        ref={fileInputRefs[idx]}
-                                                        accept="image/*" 
-                                                        className="hidden" 
-                                                        onChange={e => handlePhotoChange(idx, e.target.files[0])}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setData('model_file', null)}
+                                                            className="text-red-600 hover:text-red-700 p-1"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Submit Action */}
                                     <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
                                         <div className="text-xs text-gray-500 font-medium">
-                                            Uploaded: {data.photos.filter(Boolean).length} / 4 Photos
+                                            {studioMode === 'photos' ? `Uploaded: ${data.photos.filter(Boolean).length} / 4 Photos` : data.model_file ? '1 3D Model File Selected' : 'No File Selected'}
                                         </div>
                                         <Button
                                             type="submit"
-                                            disabled={processing || data.photos.filter(Boolean).length < 3}
+                                            disabled={processing || (studioMode === 'photos' && data.photos.filter(Boolean).length < 1) || (studioMode === 'upload_3d' && !data.model_file)}
                                             className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                                         >
                                             {processing ? (
                                                 <>
                                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                                    Synthesizing AI 3D Mesh...
+                                                    {studioMode === 'photos' ? 'Synthesizing AI 3D Mesh...' : 'Uploading 3D Model...'}
                                                 </>
                                             ) : (
                                                 <>
                                                     <Sparkles className="w-4 h-4" />
-                                                    Generate AI 3D Model
+                                                    {studioMode === 'photos' ? 'Generate AI 3D Model' : 'Save & Map 3D Model'}
                                                 </>
                                             )}
                                         </Button>
@@ -482,6 +663,82 @@ export default function ThreedStudio({ menuItems = [], hasFeature = true }) {
                             >
                                 Close Preview
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Guided Live Camera Viewfinder Modal */}
+            {guidedCameraSlot !== null && (
+                <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative">
+                        {/* Modal Header */}
+                        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                            <div>
+                                <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                                    Step {guidedCameraSlot + 1} of 4: Guided 3D Scanner
+                                </span>
+                                <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5 mt-0.5">
+                                    <Camera className="w-4 h-4 text-amber-400" />
+                                    {angleLabels[guidedCameraSlot].label} ({angleLabels[guidedCameraSlot].icon})
+                                </h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeGuidedCamera}
+                                className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Guided Camera Stream Viewfinder */}
+                        <div className="relative h-96 bg-black flex items-center justify-center overflow-hidden">
+                            <video
+                                ref={guidedVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-full object-cover"
+                            />
+                            <canvas ref={guidedCanvasRef} className="hidden" />
+
+                            {/* 3D Alignment Overlay Guide */}
+                            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                                <div className="w-64 h-64 border-2 border-dashed border-amber-400/80 rounded-full flex items-center justify-center animate-pulse">
+                                    <div className="w-56 h-56 border border-white/40 rounded-full flex items-center justify-center">
+                                        <span className="text-amber-400/80 font-bold text-xs bg-black/60 px-3 py-1 rounded-full backdrop-blur-xs">
+                                            Center Dish Here
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-amber-200 mt-4 bg-black/70 px-4 py-1.5 rounded-full font-semibold border border-amber-500/30">
+                                    {angleLabels[guidedCameraSlot].desc}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Capture Shutter Action */}
+                        <div className="p-5 bg-slate-950 flex items-center justify-between border-t border-slate-800">
+                            <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                Camera Live
+                            </div>
+                            <button
+                                type="button"
+                                onClick={captureGuidedPhoto}
+                                className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:scale-105 active:scale-95 text-slate-950 flex items-center justify-center shadow-xl shadow-amber-500/40 ring-4 ring-white/20 transition-all"
+                                title="Capture Angle Photo"
+                            >
+                                <Camera className="w-7 h-7 stroke-[2.5]" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={closeGuidedCamera}
+                                className="text-xs text-slate-400 hover:text-white font-semibold"
+                            >
+                                Skip Camera
+                            </button>
                         </div>
                     </div>
                 </div>

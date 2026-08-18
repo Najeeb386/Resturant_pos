@@ -35,25 +35,43 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
     const categoryRef = useRef(null);
     const videoRef = useRef(null);
 
-    const startArCamera = async () => {
-        try {
-            setIsArCameraActive(true);
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (err) {
-            console.log("Camera access blocked or unavailable.");
-        }
+    const startArCamera = () => {
+        setIsArCameraActive(true);
     };
 
     const stopArCamera = () => {
         if (videoRef.current && videoRef.current.srcObject) {
             const tracks = videoRef.current.srcObject.getTracks();
             tracks.forEach(track => track.stop());
+            videoRef.current.srcObject = null;
         }
         setIsArCameraActive(false);
     };
+
+    // Live Camera Stream Attachment Effect
+    useEffect(() => {
+        let activeStream = null;
+        if (isArCameraActive) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+                .then(stream => {
+                    activeStream = stream;
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        videoRef.current.play().catch(e => console.log("Camera video play error:", e));
+                    }
+                })
+                .catch(err => {
+                    console.log("Camera permission error:", err);
+                    alert("Please allow camera access to project 3D food on your dining table.");
+                    setIsArCameraActive(false);
+                });
+        }
+        return () => {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [isArCameraActive]);
 
     // Auto load Google <model-viewer> web component for 3D GLB models
     useEffect(() => {
@@ -641,20 +659,21 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         </div>
 
                         {/* 3D / AR View Canvas */}
-                        <div className="relative h-80 bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center p-2 overflow-hidden select-none border-b border-slate-800">
+                        <div className={`relative h-80 flex items-center justify-center p-2 overflow-hidden select-none border-b border-slate-800 ${isArCameraActive ? 'bg-black' : 'bg-gradient-to-b from-slate-950 to-slate-900'}`}>
                             {/* Live AR Camera Feed Backdrop */}
                             {isArCameraActive && (
                                 <video
                                     ref={videoRef}
                                     autoPlay
                                     playsInline
-                                    className="absolute inset-0 w-full h-full object-cover z-0"
+                                    muted
+                                    className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
                                 />
                             )}
 
                             <div className="relative z-10 w-full h-full">
                                 <model-viewer
-                                    src={active3dItem.model_3d ? `/storage/${active3dItem.model_3d}` : '/models/default_food_3d.glb'}
+                                    src={active3dItem.model_3d ? `/storage/${active3dItem.model_3d}` : '/models/default_food_3d.gltf'}
                                     alt={active3dItem.name}
                                     ar
                                     ar-modes="webxr scene-viewer quick-look"
@@ -663,7 +682,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                     shadow-intensity="2"
                                     environment-image="neutral"
                                     exposure="1.2"
-                                    style={{ width: '100%', height: '100%', minHeight: '300px', display: 'block' }}
+                                    style={{ width: '100%', height: '100%', minHeight: '300px', display: 'block', backgroundColor: 'transparent' }}
                                 ></model-viewer>
                             </div>
                         </div>
