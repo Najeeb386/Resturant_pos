@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
 import { 
     UtensilsCrossed, 
     Search, 
@@ -8,6 +8,7 @@ import {
     Minus, 
     CheckCircle2, 
     ChevronRight, 
+    ChevronLeft,
     X, 
     Clock, 
     AlertTriangle,
@@ -22,12 +23,22 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
     const [cart, setCart] = useState([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [placedOrder, setPlacedOrder] = useState(flash?.order || null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const categoryRef = useRef(null);
+
+    const scrollCategories = (direction) => {
+        if (categoryRef.current) {
+            const scrollAmount = direction === 'left' ? -180 : 180;
+            categoryRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
 
     const currencySymbol = restaurant?.currency_symbol || '$';
     const taxPercentage = restaurant?.tax_percentage || 0;
+    const themeColor = restaurant?.primary_color || '#f97316';
 
     // Checkout Form
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, errors } = useForm({
         restaurant_id: restaurant?.id || '',
         table_id: table?.id || '',
         customer_name: '',
@@ -113,7 +124,9 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
     // Handle Submit Checkout
     const handleCheckout = (e) => {
         e.preventDefault();
-        if (cart.length === 0) return;
+        if (cart.length === 0 || isSubmitting) return;
+
+        setIsSubmitting(true);
 
         const formattedItems = cart.map(item => ({
             menu_item_id: item.menu_item_id,
@@ -122,18 +135,29 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
             notes: item.notes || null,
         }));
 
-        post('/table-order/checkout', {
-            data: {
-                ...data,
-                items: formattedItems,
-            },
+        const payload = {
+            restaurant_id: restaurant?.id || 1,
+            table_id: table?.id || 1,
+            customer_name: data.customer_name || '',
+            customer_phone: data.customer_phone || '',
+            notes: data.notes || '',
+            items: formattedItems,
+        };
+
+        router.post('/table-order/checkout', payload, {
+            preserveScroll: true,
             onSuccess: (page) => {
                 setCart([]);
                 setIsCartOpen(false);
+                setIsSubmitting(false);
                 if (page.props.flash?.order) {
                     setPlacedOrder(page.props.flash.order);
                 }
             },
+            onError: (errs) => {
+                setIsSubmitting(false);
+                console.error("Order submit errors:", errs);
+            }
         });
     };
 
@@ -142,7 +166,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
             <Head title={`${restaurant?.name} - Table ${table?.table_number} Menu`} />
 
             {/* Header Banner */}
-            <div className="bg-gradient-to-r from-orange-600 to-amber-600 text-white sticky top-0 z-30 shadow-md">
+            <div className="text-white sticky top-0 z-30 shadow-md transition-all" style={{ backgroundColor: themeColor }}>
                 <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {restaurant?.logo ? (
@@ -154,7 +178,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         )}
                         <div>
                             <h1 className="font-bold text-base leading-tight drop-shadow-xs">{restaurant?.name}</h1>
-                            <div className="flex items-center gap-1.5 text-xs text-orange-100 font-medium">
+                            <div className="flex items-center gap-1.5 text-xs text-white/90 font-medium">
                                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                                 Table #{table?.table_number}
                             </div>
@@ -168,7 +192,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         >
                             <ShoppingCart className="w-5 h-5" />
                             {totalCartItemsCount > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-white text-orange-600 font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-bounce">
+                                <span className="absolute -top-1 -right-1 bg-white font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-bounce" style={{ color: themeColor }}>
                                     {totalCartItemsCount}
                                 </span>
                             )}
@@ -198,7 +222,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         value={searchQuery} 
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search delicious food items..." 
-                        className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all shadow-xs"
+                        className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all shadow-xs"
                     />
                     {searchQuery && (
                         <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
@@ -208,39 +232,74 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                 </div>
 
                 {/* Category Pills Slider */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-2 no-scrollbar">
+                <div className="relative mb-3">
+                    {/* Left Scroll Button */}
                     <button 
-                        onClick={() => setSelectedCategory('all')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                            selectedCategory === 'all' 
-                                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' 
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                        }`}
+                        type="button"
+                        onClick={() => scrollCategories('left')}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 bg-white/95 backdrop-blur-sm border border-slate-200 text-slate-700 rounded-full shadow-md flex items-center justify-center hover:text-white transition-all opacity-90 hover:opacity-100 active:scale-90"
+                        aria-label="Scroll left"
                     >
-                        All Categories
+                        <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {categories.map(cat => (
+
+                    {/* Scrollable Pills Container */}
+                    <div 
+                        ref={categoryRef}
+                        className="flex items-center gap-2 overflow-x-auto px-8 py-1.5 no-scrollbar scroll-smooth"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
                         <button 
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                                String(selectedCategory) === String(cat.id) 
-                                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' 
+                            type="button"
+                            onClick={() => setSelectedCategory('all')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 ${
+                                selectedCategory === 'all' 
+                                    ? 'text-white shadow-md scale-105' 
                                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                             }`}
+                            style={selectedCategory === 'all' ? { backgroundColor: themeColor, boxShadow: `0 4px 14px ${themeColor}40` } : {}}
                         >
-                            {cat.name}
+                            All Categories
                         </button>
-                    ))}
+                        {categories.map(cat => {
+                            const isCatSelected = String(selectedCategory) === String(cat.id);
+                            return (
+                                <button 
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => setSelectedCategory(cat.id)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 ${
+                                        isCatSelected 
+                                            ? 'text-white shadow-md scale-105' 
+                                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                    style={isCatSelected ? { backgroundColor: themeColor, boxShadow: `0 4px 14px ${themeColor}40` } : {}}
+                                >
+                                    {cat.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Right Scroll Button */}
+                    <button 
+                        type="button"
+                        onClick={() => scrollCategories('right')}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 bg-white/95 backdrop-blur-sm border border-slate-200 text-slate-700 rounded-full shadow-md flex items-center justify-center hover:bg-orange-500 hover:text-white transition-all opacity-90 hover:opacity-100 active:scale-90"
+                        aria-label="Scroll right"
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
 
                 {/* Menu Items List */}
                 <div className="space-y-3">
                     {filteredItems.map(item => {
                         const qty = getItemQuantityInCart(item.id);
+                        const isOutOfStock = item.stock_quantity !== null && item.stock_quantity !== undefined && Number(item.stock_quantity) <= 0;
 
                         return (
-                            <div key={item.id} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-3">
+                            <div key={item.id} className={`bg-white border rounded-2xl p-3 shadow-xs transition-all flex items-center justify-between gap-3 ${isOutOfStock ? 'opacity-60 border-slate-200' : 'border-slate-100 hover:shadow-md'}`}>
                                 {item.image ? (
                                     <img src={`/storage/${item.image}`} alt={item.name} className="w-20 h-20 rounded-xl object-cover shrink-0 border border-slate-100" />
                                 ) : (
@@ -252,11 +311,16 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 mb-0.5">
                                         <h3 className="font-bold text-slate-900 text-sm truncate">{item.name}</h3>
+                                        {isOutOfStock && (
+                                            <span className="bg-red-100 text-red-600 font-bold text-[10px] px-2 py-0.5 rounded-full shrink-0">
+                                                Sold Out
+                                            </span>
+                                        )}
                                     </div>
                                     {item.description && (
                                         <p className="text-xs text-slate-500 line-clamp-2 mb-2 leading-relaxed">{item.description}</p>
                                     )}
-                                    <div className="text-sm font-extrabold text-orange-600">
+                                    <div className="text-sm font-extrabold" style={{ color: themeColor }}>
                                         {currencySymbol}{Number(item.price).toFixed(2)}
                                     </div>
                                 </div>
@@ -264,25 +328,35 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                 {/* Add / Qty Controls */}
                                 {hasQrOrdering && (
                                     <div className="shrink-0">
-                                        {qty === 0 ? (
+                                        {isOutOfStock ? (
+                                            <button 
+                                                disabled
+                                                className="bg-slate-100 text-slate-400 text-xs font-bold px-3 py-2 rounded-xl cursor-not-allowed"
+                                            >
+                                                Sold Out
+                                            </button>
+                                        ) : qty === 0 ? (
                                             <button 
                                                 onClick={() => addToCart(item)}
-                                                className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                                className="text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                                style={{ backgroundColor: themeColor, boxShadow: `0 4px 12px ${themeColor}35` }}
                                             >
                                                 <Plus className="w-3.5 h-3.5" /> Add
                                             </button>
                                         ) : (
-                                            <div className="flex items-center bg-orange-50 border border-orange-200 rounded-xl p-1 gap-2">
+                                            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 gap-2">
                                                 <button 
                                                     onClick={() => updateQuantity(item.id, -1)}
-                                                    className="w-6 h-6 bg-white rounded-lg flex items-center justify-center text-orange-600 font-bold shadow-xs active:scale-90"
+                                                    className="w-6 h-6 bg-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
+                                                    style={{ color: themeColor }}
                                                 >
                                                     <Minus className="w-3 h-3" />
                                                 </button>
-                                                <span className="text-xs font-extrabold text-orange-700 w-4 text-center">{qty}</span>
+                                                <span className="text-xs font-extrabold w-4 text-center" style={{ color: themeColor }}>{qty}</span>
                                                 <button 
                                                     onClick={() => updateQuantity(item.id, 1)}
-                                                    className="w-6 h-6 bg-orange-500 text-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
+                                                    className="w-6 h-6 text-white rounded-lg flex items-center justify-center font-bold shadow-xs active:scale-90"
+                                                    style={{ backgroundColor: themeColor }}
                                                 >
                                                     <Plus className="w-3 h-3" />
                                                 </button>
@@ -296,7 +370,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
 
                     {filteredItems.length === 0 && (
                         <div className="text-center py-12 bg-white border border-dashed border-slate-200 rounded-2xl p-6">
-                            <Sparkles className="w-8 h-8 text-orange-400 mx-auto mb-2 opacity-60" />
+                            <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-60" style={{ color: themeColor }} />
                             <h4 className="font-bold text-slate-800 text-sm">No items found</h4>
                             <p className="text-xs text-slate-400 mt-1">Try searching for something else or pick a different category.</p>
                         </div>
@@ -309,7 +383,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                 <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
                     <div className="max-w-md mx-auto bg-slate-900 text-white rounded-2xl p-3.5 shadow-xl flex items-center justify-between border border-slate-800 backdrop-blur-md animate-fade-in-up">
                         <div className="flex items-center gap-3">
-                            <div className="bg-orange-500 text-white w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-sm">
+                            <div className="text-white w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-sm" style={{ backgroundColor: themeColor }}>
                                 {totalCartItemsCount}
                             </div>
                             <div>
@@ -320,7 +394,8 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
 
                         <button 
                             onClick={() => setIsCartOpen(true)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                            className="text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                            style={{ backgroundColor: themeColor, boxShadow: `0 4px 14px ${themeColor}40` }}
                         >
                             View Order <ChevronRight className="w-4 h-4" />
                         </button>
@@ -336,7 +411,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                             <div>
                                 <h2 className="font-bold text-slate-900 text-base">Your Table Order</h2>
-                                <div className="text-xs text-orange-600 font-semibold">{restaurant?.name} • Table #{table?.table_number}</div>
+                                <div className="text-xs font-semibold" style={{ color: themeColor }}>{restaurant?.name} • Table #{table?.table_number}</div>
                             </div>
                             <button onClick={() => setIsCartOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                                 <X className="w-5 h-5" />
@@ -365,7 +440,8 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                             <button 
                                                 type="button" 
                                                 onClick={() => updateQuantity(item.menu_item_id, 1)}
-                                                className="w-5 h-5 bg-orange-500 text-white rounded flex items-center justify-center font-bold text-xs shadow-xs"
+                                                className="w-5 h-5 text-white rounded flex items-center justify-center font-bold text-xs shadow-xs"
+                                                style={{ backgroundColor: themeColor }}
                                             >
                                                 +
                                             </button>
@@ -387,7 +463,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                         value={data.customer_name} 
                                         onChange={e => setData('customer_name', e.target.value)}
                                         placeholder="e.g. Alex" 
-                                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:border-transparent outline-none"
                                     />
                                 </div>
 
@@ -398,7 +474,7 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                         value={data.notes} 
                                         onChange={e => setData('notes', e.target.value)}
                                         placeholder="e.g. Less spicy, extra napkins..." 
-                                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:border-transparent outline-none"
                                     ></textarea>
                                 </div>
                             </div>
@@ -417,16 +493,17 @@ export default function CustomerMenu({ restaurant, table, categories = [], hasQr
                                 )}
                                 <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
                                     <span>Total Payable</span>
-                                    <span className="text-orange-600">{currencySymbol}{cartTotal.toFixed(2)}</span>
+                                    <span style={{ color: themeColor }}>{currencySymbol}{cartTotal.toFixed(2)}</span>
                                 </div>
                             </div>
 
                             <button 
                                 type="submit" 
-                                disabled={processing}
-                                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-sm py-3 rounded-xl shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 active:scale-98 transition-all"
+                                disabled={isSubmitting}
+                                className="w-full disabled:opacity-50 text-white font-bold text-sm py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-98 transition-all"
+                                style={{ backgroundColor: themeColor, boxShadow: `0 4px 16px ${themeColor}40` }}
                             >
-                                {processing ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
+                                {isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}
                             </button>
                         </form>
                     </div>

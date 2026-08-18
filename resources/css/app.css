@@ -13,3 +13,27 @@
     --color-secondary: #FF9130;
     --color-background: #F9FAFB;
 }
+
+/* Custom scrollbar utilities */
+.no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+.no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.sleek-scrollbar::-webkit-scrollbar {
+    height: 4px;
+}
+.sleek-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+.sleek-scrollbar::-webkit-scrollbar-thumb {
+    background: #f97316;
+    border-radius: 10px;
+}
+

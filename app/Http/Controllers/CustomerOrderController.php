@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Models\Table;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -26,7 +27,11 @@ class CustomerOrderController extends Controller
 
         $categories = MenuCategory::where('restaurant_id', $restaurantId)
             ->with(['menuItems' => function ($q) {
-                $q->where('available', true);
+                $q->where('available', true)
+                  ->where(function ($sub) {
+                      $sub->whereNull('stock_quantity')
+                          ->orWhere('stock_quantity', '>', 0);
+                  });
             }])
             ->get();
 
@@ -39,6 +44,7 @@ class CustomerOrderController extends Controller
                 'address' => $restaurant->address,
                 'currency_symbol' => $restaurant->currency_symbol ?? '$',
                 'tax_percentage' => (float)($restaurant->tax_percentage ?? 0),
+                'primary_color' => $restaurant->primary_color ?? '#f97316',
             ],
             'table' => [
                 'id' => $table->id,
@@ -114,9 +120,12 @@ class CustomerOrderController extends Controller
             $totalAmount = $addedSubtotal + $taxAmount;
             $orderNumber = 'QR-' . strtoupper(Str::random(6));
 
+            $staffUserId = auth()->id() ?? User::where('restaurant_id', $restaurant->id)->value('id');
+
             $order = Order::create([
                 'restaurant_id' => $restaurant->id,
                 'table_id' => $table->id,
+                'user_id' => $staffUserId,
                 'order_type' => 'dine_in',
                 'order_number' => $orderNumber,
                 'customer_name' => $request->customer_name ?: ('Table ' . $table->table_number . ' Guest'),

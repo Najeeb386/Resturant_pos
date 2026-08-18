@@ -3,7 +3,7 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Button } from '../../Components/ui/Button';
 import { useForm, usePage } from '@inertiajs/react';
-import { Save, Upload, Loader2, Plus, X, CreditCard, Banknote } from 'lucide-react';
+import { Save, Upload, Loader2, Plus, X, CreditCard, Banknote, Palette } from 'lucide-react';
 
 export default function Profile({ restaurant }) {
     const fileInputRef = useRef(null);
@@ -19,12 +19,13 @@ export default function Profile({ restaurant }) {
         currency: restaurant.currency || 'USD',
         currency_symbol: restaurant.currency_symbol || '$',
         tax_percentage: restaurant.tax_percentage || 10,
+        primary_color: restaurant.primary_color || '#f97316',
         receipt_header: restaurant.receipt_header || '',
         receipt_footer: restaurant.receipt_footer || '',
         kitchen_bypass: Boolean(restaurant.kitchen_bypass),
         payment_methods: restaurant.payment_methods || 'Cash,Card',
         logo: null,
-        _method: 'post', // Since we use POST route for handling files easily in Laravel
+        _method: 'post',
     });
 
     const methodsList = data.payment_methods 
@@ -214,6 +215,62 @@ export default function Profile({ restaurant }) {
                                             className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                         />
                                         {errors.tax_percentage && <p className="text-red-500 text-xs mt-1">{errors.tax_percentage}</p>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* QR Digital Menu Branding & Color Theme */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                                    <Palette className="w-5 h-5 text-primary" />
+                                    QR Digital Menu Theme Color
+                                </h3>
+                                <p className="text-xs text-gray-500 mb-4">Choose a primary brand color theme for your table QR ordering web page.</p>
+
+                                <div className="space-y-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {[
+                                            { name: 'Sunset Orange', hex: '#f97316' },
+                                            { name: 'Crimson Red', hex: '#dc2626' },
+                                            { name: 'Emerald Green', hex: '#059669' },
+                                            { name: 'Royal Blue', hex: '#2563eb' },
+                                            { name: 'Deep Purple', hex: '#7c3aed' },
+                                            { name: 'Rose Pink', hex: '#db2777' },
+                                            { name: 'Charcoal Dark', hex: '#0f172a' },
+                                        ].map((preset) => (
+                                            <button
+                                                key={preset.hex}
+                                                type="button"
+                                                onClick={() => setData('primary_color', preset.hex)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                                    data.primary_color?.toLowerCase() === preset.hex.toLowerCase()
+                                                        ? 'bg-white border-gray-900 shadow-sm ring-2 ring-gray-900/20 scale-105'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <span className="w-4 h-4 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: preset.hex }}></span>
+                                                {preset.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-3 pt-2">
+                                        <label className="text-xs font-medium text-gray-700">Custom Color Picker:</label>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="color" 
+                                                value={data.primary_color || '#f97316'}
+                                                onChange={e => setData('primary_color', e.target.value)}
+                                                className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
+                                            />
+                                            <input 
+                                                type="text"
+                                                value={data.primary_color || '#f97316'}
+                                                onChange={e => setData('primary_color', e.target.value)}
+                                                placeholder="#f97316"
+                                                className="w-28 px-3 py-1.5 text-xs font-mono border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

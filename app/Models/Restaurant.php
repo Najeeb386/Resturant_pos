@@ -8,7 +8,7 @@ class Restaurant extends Model
 {
     protected $fillable = [
         'name', 'address', 'phone', 'email', 'gst_number', 'currency', 
-        'currency_symbol', 'tax_percentage', 'logo', 'receipt_header', 'receipt_footer', 'kitchen_bypass', 'payment_methods'
+        'currency_symbol', 'tax_percentage', 'primary_color', 'logo', 'receipt_header', 'receipt_footer', 'kitchen_bypass', 'payment_methods'
     ];
 
     public function users()
