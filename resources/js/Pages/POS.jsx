@@ -19,6 +19,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [customerPhone, setCustomerPhone] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [deliveryFee, setDeliveryFee] = useState('');
+    const [cashReceived, setCashReceived] = useState('');
     const [showReceipt, setShowReceipt] = useState(false);
     const [lastOrder, setLastOrder] = useState(null);
     const [currentOrderId, setCurrentOrderId] = useState(null);
@@ -137,6 +138,10 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
         ...(orderType === 'delivery' && !configuredMethods.includes('Cash on Delivery') ? ['Cash on Delivery'] : [])
     ];
 
+    const cashReceivedNum = parseFloat(cashReceived) || 0;
+    const changeReturnAmount = cashReceivedNum >= total && total > 0 ? (cashReceivedNum - total) : 0;
+    const remainingDueAmount = cashReceivedNum > 0 && cashReceivedNum < total ? (total - cashReceivedNum) : 0;
+
     // Sync cart to form data
     useEffect(() => {
         setData(currentData => ({
@@ -166,6 +171,8 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     subtotal,
                     tax,
                     total,
+                    cash_received: cashReceivedNum,
+                    change_return: changeReturnAmount,
                     method: data.payment_method,
                     table: tables.find(t => t.id == selectedTable)?.table_number || (orderType === 'delivery' ? 'Delivery' : 'Takeaway'),
                     customer: customerName || 'Walk-in',
@@ -181,6 +188,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 setCustomerPhone('');
                 setDeliveryAddress('');
                 setDeliveryFee('');
+                setCashReceived('');
                 setOrderType('takeaway');
                 setCurrentOrderId(null);
                 setShowReceipt(true);
@@ -700,6 +708,94 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                     ))}
                                 </div>
 
+                                {/* Cash & Change Return Option */}
+                                {data.payment_method.toLowerCase().includes('cash') && (
+                                    <div className="mb-4 bg-emerald-50/80 border border-emerald-200/80 p-3 rounded-xl space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Banknote className="w-4 h-4 text-emerald-600" />
+                                                Cash Received & Change
+                                            </label>
+                                            {cashReceivedNum > 0 && (
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setCashReceived('')}
+                                                    className="text-[11px] text-gray-500 hover:text-red-600 font-semibold transition-colors"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">
+                                                {currency}
+                                            </span>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                value={cashReceived}
+                                                onChange={(e) => setCashReceived(e.target.value)}
+                                                placeholder={`Amount paid (e.g. ${total.toFixed(2)})`}
+                                                className="w-full pl-8 pr-3 py-2 border border-emerald-300 rounded-lg text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                            />
+                                        </div>
+
+                                        {/* Preset Fast Cash Options */}
+                                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                                            {[
+                                                { label: 'Exact', val: total.toFixed(2) },
+                                                ...(total < 10 ? [{ label: `${currency}10`, val: '10' }] : []),
+                                                ...(total < 20 ? [{ label: `${currency}20`, val: '20' }] : []),
+                                                ...(total < 50 ? [{ label: `${currency}50`, val: '50' }] : []),
+                                                ...(total < 100 ? [{ label: `${currency}100`, val: '100' }] : []),
+                                                ...(total < 500 ? [{ label: `${currency}500`, val: '500' }] : []),
+                                                ...(total < 1000 ? [{ label: `${currency}1000`, val: '1000' }] : []),
+                                                ...(total < 5000 ? [{ label: `${currency}5000`, val: '5000' }] : []),
+                                            ].map((opt, i) => (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => setCashReceived(opt.val)}
+                                                    className={`px-2 py-1 text-xs font-bold rounded-lg border transition-all whitespace-nowrap ${
+                                                        cashReceived === opt.val
+                                                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                                        : 'bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Return Change / Due Banner */}
+                                        {cashReceivedNum > 0 && (
+                                            <div className="pt-0.5">
+                                                {cashReceivedNum >= total ? (
+                                                    <div className="bg-emerald-600 text-white p-2.5 rounded-lg flex items-center justify-between shadow-xs">
+                                                        <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                                            💵 Return Change:
+                                                        </span>
+                                                        <span className="text-base font-black">
+                                                            {currency}{changeReturnAmount.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-amber-500 text-white p-2.5 rounded-lg flex items-center justify-between shadow-xs">
+                                                        <span className="text-xs font-bold uppercase tracking-wider">
+                                                            ⚠️ Remaining Due:
+                                                        </span>
+                                                        <span className="text-sm font-bold">
+                                                            {currency}{remainingDueAmount.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <Button 
                                     className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 text-base rounded-xl transition-all flex justify-between items-center px-5 shadow-md shadow-primary/20"
                                     onClick={handleCheckout}
@@ -788,7 +884,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                 ))}
                             </div>
 
-                            <div className="border-t border-dashed border-gray-300 pt-4 space-y-2 mb-6">
+                            <div className="border-t border-dashed border-gray-300 pt-4 space-y-2 mb-4">
                                 <div className="flex justify-between text-sm text-gray-600">
                                     <span>Subtotal</span>
                                     <span>{currency}{lastOrder.subtotal.toFixed(2)}</span>
@@ -803,14 +899,31 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                         <span>{currency}{lastOrder.delivery_fee.toFixed(2)}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between font-bold text-lg pt-2">
+                                <div className="flex justify-between font-bold text-lg pt-2 border-b border-dashed border-gray-300 pb-2">
                                     <span>Total</span>
                                     <span>{currency}{lastOrder.total.toFixed(2)}</span>
                                 </div>
+
+                                {lastOrder.cash_received > 0 && (
+                                    <>
+                                        <div className="flex justify-between text-sm text-gray-700 font-semibold pt-1">
+                                            <span>Paid ({lastOrder.method})</span>
+                                            <span>{currency}{lastOrder.cash_received.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm text-emerald-700 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                                            <span>Change Returned</span>
+                                            <span>{currency}{lastOrder.change_return.toFixed(2)}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
-                            <div className="text-center text-sm text-gray-500 mb-6">
+                            <div className="text-center text-sm text-gray-500 mb-2">
                                 Paid via {lastOrder.method}
+                            </div>
+
+                            <div className="text-center text-[11px] font-black text-gray-400 mb-5 pt-2 border-t border-dashed border-gray-300 uppercase tracking-widest">
+                                Powered by DineDesk
                             </div>
 
                             <div className="grid grid-cols-2 gap-2.5 print:hidden">

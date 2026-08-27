@@ -175,6 +175,9 @@ if (!function_exists('getBarcodeSVG')) {
             @if($restaurant->receipt_footer)
                 <p>{{ $restaurant->receipt_footer }}</p>
             @endif
+            <p style="font-size: 10px; font-weight: bold; margin-top: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: #444;">
+                Powered by {{ config('app.name', 'DineDesk') }}
+            </p>
         </div>
     </div>
 </body>

@@ -449,6 +449,14 @@ class _OrdersViewState extends State<OrdersView> {
                   Text('Rs ${order.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.deepOrange)),
                 ],
               ),
+              const Divider(),
+              const SizedBox(height: 4),
+              const Center(
+                child: Text(
+                  'POWERED BY DINEDESK',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
+                ),
+              ),
             ],
           ),
         ),
