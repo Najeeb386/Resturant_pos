@@ -35,7 +35,7 @@ class MenuItem extends Model
     public function dealItems()
     {
         return $this->belongsToMany(MenuItem::class, 'deal_items', 'deal_id', 'menu_item_id')
-                    ->withPivot('quantity')
+                    ->withPivot(['quantity', 'variant_id'])
                     ->withTimestamps();
     }
 

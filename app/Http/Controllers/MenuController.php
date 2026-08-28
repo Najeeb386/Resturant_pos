@@ -86,6 +86,7 @@ class MenuController extends Controller
             'ingredients.*.quantity' => 'required|numeric|min:0.0001',
             'dealItems' => 'nullable|array',
             'dealItems.*.id' => 'required|exists:menu_items,id',
+            'dealItems.*.variant_id' => 'nullable|exists:menu_item_variants,id',
             'dealItems.*.quantity' => 'required|integer|min:1',
         ]);
 
@@ -110,9 +111,16 @@ class MenuController extends Controller
             if ($request->is_deal && $request->has('dealItems')) {
                 $data['cost_price'] = 0;
                 foreach ($request->dealItems as $dealItem) {
-                    $childItem = MenuItem::find($dealItem['id']);
-                    if ($childItem) {
-                        $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                    if (!empty($dealItem['variant_id'])) {
+                        $variant = MenuItemVariant::find($dealItem['variant_id']);
+                        if ($variant) {
+                            $data['cost_price'] += $variant->cost_price * $dealItem['quantity'];
+                        }
+                    } else {
+                        $childItem = MenuItem::find($dealItem['id']);
+                        if ($childItem) {
+                            $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                        }
                     }
                 }
             }
@@ -136,7 +144,10 @@ class MenuController extends Controller
             if ($request->is_deal && $request->has('dealItems')) {
                 $syncData = [];
                 foreach ($request->dealItems as $di) {
-                    $syncData[$di['id']] = ['quantity' => $di['quantity']];
+                    $syncData[$di['id']] = [
+                        'quantity' => $di['quantity'],
+                        'variant_id' => !empty($di['variant_id']) ? $di['variant_id'] : null,
+                    ];
                 }
                 $menuItem->dealItems()->sync($syncData);
             } else if (!$request->is_deal && $request->has('ingredients')) {
@@ -183,6 +194,7 @@ class MenuController extends Controller
             'ingredients.*.quantity' => 'required|numeric|min:0.0001',
             'dealItems' => 'nullable|array',
             'dealItems.*.id' => 'required|exists:menu_items,id',
+            'dealItems.*.variant_id' => 'nullable|exists:menu_item_variants,id',
             'dealItems.*.quantity' => 'required|integer|min:1',
         ]);
 
@@ -208,9 +220,16 @@ class MenuController extends Controller
             if ($request->is_deal && $request->has('dealItems')) {
                 $data['cost_price'] = 0;
                 foreach ($request->dealItems as $dealItem) {
-                    $childItem = MenuItem::find($dealItem['id']);
-                    if ($childItem) {
-                        $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                    if (!empty($dealItem['variant_id'])) {
+                        $variant = MenuItemVariant::find($dealItem['variant_id']);
+                        if ($variant) {
+                            $data['cost_price'] += $variant->cost_price * $dealItem['quantity'];
+                        }
+                    } else {
+                        $childItem = MenuItem::find($dealItem['id']);
+                        if ($childItem) {
+                            $data['cost_price'] += $childItem->cost_price * $dealItem['quantity'];
+                        }
                     }
                 }
             }
@@ -235,7 +254,10 @@ class MenuController extends Controller
             if ($request->is_deal && $request->has('dealItems')) {
                 $syncData = [];
                 foreach ($request->dealItems as $di) {
-                    $syncData[$di['id']] = ['quantity' => $di['quantity']];
+                    $syncData[$di['id']] = [
+                        'quantity' => $di['quantity'],
+                        'variant_id' => !empty($di['variant_id']) ? $di['variant_id'] : null,
+                    ];
                 }
                 $menuItem->dealItems()->sync($syncData);
                 $menuItem->ingredients()->detach();

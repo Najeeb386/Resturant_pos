@@ -24,6 +24,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
     const [lastOrder, setLastOrder] = useState(null);
     const [currentOrderId, setCurrentOrderId] = useState(null);
     const [showDraftsModal, setShowDraftsModal] = useState(false);
+    const [showTableModal, setShowTableModal] = useState(false);
     const [mobileTab, setMobileTab] = useState('menu'); // 'menu' | 'cart'
 
     // Size / Variant Picker Modal State
@@ -330,29 +331,29 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </button>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-7rem)] print:hidden relative pb-16 lg:pb-0">
+            <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-7rem)] print:hidden relative pb-16 lg:pb-0 w-full max-w-full min-w-0 overflow-x-hidden">
                 {/* Left Side: Menu */}
-                <div className={`flex-1 flex flex-col gap-6 ${mobileTab === 'menu' ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`flex-1 flex flex-col gap-4 sm:gap-6 min-w-0 max-w-full ${mobileTab === 'menu' ? 'flex' : 'hidden lg:flex'}`}>
                     {/* Search and Categories */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                        <div className="relative w-full sm:w-72">
-                            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-gray-100 min-w-0">
+                        <div className="relative w-full sm:w-72 shrink-0">
+                            <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input 
                                 type="text"
                                 placeholder="Search menu..."
-                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm sm:text-base"
+                                className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs sm:text-sm"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <div className="flex gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
+                        <div className="flex gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-hide shrink min-w-0">
                             {displayCategories.map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
-                                    className={`px-4 py-2 whitespace-nowrap rounded-xl font-medium text-sm transition-colors ${
+                                    className={`px-3.5 py-1.5 sm:px-4 sm:py-2 whitespace-nowrap rounded-xl font-medium text-xs sm:text-sm transition-colors shrink-0 ${
                                         activeCategory === cat 
-                                        ? 'bg-primary text-white shadow-md shadow-primary/30' 
+                                        ? 'bg-primary text-white shadow-md shadow-primary/30 font-bold' 
                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                                 >
@@ -363,7 +364,7 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                     </div>
 
                     {/* Menu Items Grid */}
-                    <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-6">
+                    <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 pb-6">
                         {filteredMenu.map(item => {
                             const isOutOfStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity <= 0;
                             const isLowStock = item.stock_quantity !== null && item.stock_quantity !== undefined && item.stock_quantity > 0 && item.stock_quantity <= 5;
@@ -403,14 +404,14 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                             className={`w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-full mb-2 sm:mb-3 ${isOutOfStock ? 'grayscale opacity-50' : ''}`} 
                                         />
                                     ) : (
-                                        <div className={`text-4xl sm:text-5xl mb-2 sm:mb-3 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}>🍽️</div>
+                                        <div className={`text-3xl sm:text-4xl mb-2 sm:mb-3 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}>🍽️</div>
                                     )}
 
                                     <h3 className={`font-semibold line-clamp-2 min-h-[2.2rem] text-xs sm:text-sm ${isOutOfStock ? 'text-gray-500' : 'text-gray-800'}`}>
                                         {item.name}
                                     </h3>
 
-                                    <div className={`font-bold mt-1 sm:mt-2 text-sm sm:text-base ${isOutOfStock ? 'text-gray-400 line-through' : 'text-primary'}`}>
+                                    <div className={`font-bold mt-1 sm:mt-2 text-xs sm:text-sm ${isOutOfStock ? 'text-gray-400 line-through' : 'text-primary'}`}>
                                         {hasVars ? (
                                             <div className="flex flex-col items-center">
                                                 <span>{currency}{minPrice.toFixed(2)}+</span>
@@ -434,25 +435,25 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </div>
 
                 {/* Right Side: Cart */}
-                <div className={`w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden flex-shrink-0 ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`w-full lg:w-[350px] xl:w-[380px] shrink-0 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
                     
                     {/* Scrollable Top & Cart Items */}
                     <div className="flex-1 overflow-y-auto flex flex-col">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-3 flex-shrink-0">
+                        <div className="p-3.5 sm:p-4 border-b border-gray-100 bg-gray-50 space-y-3 shrink-0">
                             <div className="flex items-center justify-between">
-                                <h2 className="font-bold text-lg flex items-center gap-2">
-                                    <ShoppingCart className="w-5 h-5 text-primary" />
+                                <h2 className="font-bold text-base sm:text-lg flex items-center gap-2">
+                                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                                     Current Order
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => setShowDraftsModal(true)}
-                                        className="bg-amber-100 text-amber-700 hover:bg-amber-200 text-xs px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 shadow-sm"
+                                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs px-2.5 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 border border-amber-300/60 shadow-2xs"
                                     >
                                         Drafts
-                                        <span className="bg-amber-200 text-amber-800 rounded px-1 text-[10px]">{allDrafts?.length || 0}</span>
+                                        <span className="bg-amber-300 text-amber-900 rounded px-1.5 py-0.2 text-[10px] font-black">{allDrafts?.length || 0}</span>
                                     </button>
-                                    <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold">
+                                    <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-extrabold">
                                         {cart.length} items
                                     </span>
                                 </div>
@@ -460,157 +461,114 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
 
                             {/* Customer Name */}
                             <div>
-                                <label className="text-xs font-medium text-gray-600 block mb-1">Customer Name (Optional)</label>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Name (Optional)</label>
                                 <input
                                     type="text"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                     placeholder="Walk-in Customer"
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
                                 />
                             </div>
 
-                            {/* Order Type */}
+                            {/* Order Type Segmented Toggle */}
                             <div>
-                                <label className="text-xs font-medium text-gray-600 block mb-1">Order Type</label>
-                                <select
-                                    value={orderType}
-                                    onChange={(e) => {
-                                        const newType = e.target.value;
-                                        setOrderType(newType);
-                                        if (newType !== 'dine_in') {
-                                            setSelectedTable('');
-                                        }
-                                    }}
-                                    disabled={isWaiter}
-                                    className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${isWaiter ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                >
-                                    {!isWaiter && <option value="takeaway">Takeaway</option>}
-                                    <option value="dine_in">Dine In</option>
-                                    {!isWaiter && <option value="delivery">Delivery</option>}
-                                </select>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Order Type</label>
+                                <div className="grid grid-cols-3 gap-1 bg-gray-200/80 p-1 rounded-xl">
+                                    {[
+                                        { key: 'takeaway', label: '🛍️ Takeaway' },
+                                        { key: 'dine_in', label: '🍽️ Dine In' },
+                                        { key: 'delivery', label: '🚚 Delivery' }
+                                    ].map(type => (
+                                        <button
+                                            key={type.key}
+                                            type="button"
+                                            disabled={isWaiter && type.key !== 'dine_in'}
+                                            onClick={() => {
+                                                setOrderType(type.key);
+                                                if (type.key !== 'dine_in') {
+                                                    setSelectedTable('');
+                                                } else if (!selectedTable && tables.length > 0) {
+                                                    setShowTableModal(true);
+                                                }
+                                            }}
+                                            className={`py-1.5 px-1 text-[11px] sm:text-xs font-black rounded-lg transition-all text-center whitespace-nowrap ${
+                                                orderType === type.key
+                                                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                            } ${isWaiter && type.key !== 'dine_in' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                        >
+                                            {type.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+
+                            {/* Table Status Card (Only for Dine In) */}
+                            {orderType === 'dine_in' && (
+                                <div className="bg-orange-50/90 border border-orange-200 p-2.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-black text-orange-800 uppercase tracking-wider">Dining Table</div>
+                                        <div className="text-xs font-extrabold text-gray-900 truncate mt-0.5 flex items-center gap-1.5">
+                                            {selectedTable ? (
+                                                <>
+                                                    <span className="text-orange-950 font-black">🪑 Table {tables.find(t => t.id == selectedTable)?.table_number || selectedTable}</span>
+                                                    {openBills[selectedTable] && (
+                                                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                            Active ({currency}{openBills[selectedTable].total.toFixed(2)})
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-red-600 font-bold flex items-center gap-1">
+                                                    ⚠️ No table selected
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTableModal(true)}
+                                        className="bg-white hover:bg-orange-100 text-orange-900 text-xs font-extrabold px-2.5 py-1.5 rounded-lg border border-orange-300 transition-colors shadow-2xs shrink-0"
+                                    >
+                                        {selectedTable ? 'Change Table' : 'Select Table'}
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Delivery Fields */}
                             {orderType === 'delivery' && (
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <div>
-                                        <label className="text-xs font-medium text-gray-600 block mb-1">Customer Phone</label>
+                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Phone</label>
                                         <input
                                             type="text"
                                             value={customerPhone}
                                             onChange={(e) => setCustomerPhone(e.target.value)}
                                             placeholder="Enter phone number"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium text-gray-600 block mb-1">Delivery Address</label>
+                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Address</label>
                                         <textarea
                                             value={deliveryAddress}
                                             onChange={(e) => setDeliveryAddress(e.target.value)}
                                             placeholder="Enter full address"
                                             rows="2"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none bg-white"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium text-gray-600 block mb-1">Delivery Fee</label>
+                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Fee ({currency})</label>
                                         <input
                                             type="number"
                                             value={deliveryFee}
                                             onChange={(e) => setDeliveryFee(e.target.value)}
                                             placeholder="0.00"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
                                         />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Table Selection + Open Bills - Only for Dine In */}
-                            {orderType === 'dine_in' && (
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-600 block mb-1">Select Table</label>
-                                        <select
-                                            value={selectedTable}
-                                            onChange={(e) => setSelectedTable(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                                        >
-                                            <option value="">Select a table...</option>
-                                            {tables.map(t => (
-                                                <option key={t.id} value={t.id}>
-                                                    Table {t.table_number} {t.status === 'occupied' ? '(Occupied)' : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-orange-500 inline-block animate-pulse"></span>
-                                                Select Table / Open Bills
-                                            </label>
-                                            <span className="text-[11px] text-orange-700 font-bold bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                                                {tables.filter(t => openBills[t.id]).length} Active Bill(s)
-                                            </span>
-                                        </div>
-
-                                        <div className="grid grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                                            {tables.map(table => {
-                                                const bill = openBills[table.id];
-                                                const isOpen = !!bill;
-                                                const isSelected = selectedTable == table.id;
-
-                                                return (
-                                                    <button
-                                                        key={table.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            if (isOpen) {
-                                                                loadOpenBill(table.id);
-                                                            } else {
-                                                                setSelectedTable(table.id);
-                                                            }
-                                                        }}
-                                                        className={`p-2.5 rounded-xl border text-left transition-all duration-200 shadow-xs relative overflow-hidden ${
-                                                            isSelected 
-                                                                ? 'bg-gradient-to-br from-orange-500 to-amber-600 text-white border-orange-600 shadow-md shadow-orange-500/25 ring-2 ring-orange-400 scale-[1.02]' 
-                                                                : isOpen 
-                                                                    ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-xs' 
-                                                                    : 'bg-orange-50 text-orange-950 border-orange-200/80 hover:bg-orange-100 hover:border-orange-300'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <span className={`font-extrabold text-xs ${isSelected || isOpen ? 'text-white' : 'text-gray-900'}`}>
-                                                                Table {table.table_number}
-                                                            </span>
-                                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-tight ${
-                                                                isSelected || isOpen ? 'bg-white/20 text-white' : 'bg-orange-200/70 text-orange-900'
-                                                            }`}>
-                                                                {isOpen ? 'Open' : table.status === 'occupied' ? 'Occupied' : 'Free'}
-                                                            </span>
-                                                        </div>
-
-                                                        {isOpen ? (
-                                                            <div className="mt-1.5">
-                                                                <div className={`font-black text-sm ${isSelected || isOpen ? 'text-white' : 'text-orange-800'}`}>
-                                                                    {currency}{bill.total.toFixed(2)}
-                                                                </div>
-                                                                <div className={`text-[10px] font-semibold ${isSelected || isOpen ? 'text-white/90' : 'text-orange-700'}`}>
-                                                                    Tap to load bill
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className={`text-[10px] mt-1.5 font-medium ${isSelected ? 'text-white/90' : 'text-orange-700/80'}`}>
-                                                                Select table
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -940,6 +898,89 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                                     <X className="w-4 h-4" /> Close
                                 </Button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Table Selection & Open Bills Modal */}
+            {showTableModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <span>🪑 Select Dining Table / Open Bills</span>
+                                </h2>
+                                <p className="text-xs text-gray-500">Choose a free table or tap an active open bill to load it.</p>
+                            </div>
+                            <button onClick={() => setShowTableModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {tables.map(table => {
+                                    const bill = openBills[table.id];
+                                    const isOpen = !!bill;
+                                    const isSelected = selectedTable == table.id;
+
+                                    return (
+                                        <button
+                                            key={table.id}
+                                            type="button"
+                                            onClick={() => {
+                                                if (isOpen) {
+                                                    loadOpenBill(table.id);
+                                                } else {
+                                                    setSelectedTable(table.id);
+                                                }
+                                                setShowTableModal(false);
+                                            }}
+                                            className={`p-3.5 rounded-2xl border text-left transition-all duration-200 shadow-sm relative flex flex-col justify-between min-h-[100px] ${
+                                                isSelected 
+                                                    ? 'bg-gradient-to-br from-orange-500 to-amber-600 text-white border-orange-600 shadow-md ring-4 ring-orange-400/30 scale-[1.02]' 
+                                                    : isOpen 
+                                                        ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-xs' 
+                                                        : 'bg-white text-gray-900 border-gray-200 hover:border-orange-400 hover:bg-orange-50/50'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className={`font-black text-sm ${isSelected || isOpen ? 'text-white' : 'text-gray-900'}`}>
+                                                    Table {table.table_number}
+                                                </span>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
+                                                    isSelected || isOpen ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {isOpen ? 'Open' : table.status === 'occupied' ? 'Occupied' : 'Free'}
+                                                </span>
+                                            </div>
+
+                                            {isOpen ? (
+                                                <div className="mt-2">
+                                                    <div className={`font-black text-base ${isSelected || isOpen ? 'text-white' : 'text-orange-800'}`}>
+                                                        {currency}{bill.total.toFixed(2)}
+                                                    </div>
+                                                    <div className={`text-[10px] font-medium ${isSelected || isOpen ? 'text-white/90' : 'text-orange-700'}`}>
+                                                        Tap to load bill
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className={`text-[11px] mt-2 font-semibold ${isSelected ? 'text-white/90' : 'text-gray-500'}`}>
+                                                    {isSelected ? '✓ Selected' : 'Tap to select'}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {tables.length === 0 && (
+                                <div className="text-center py-12 text-gray-500">
+                                    No dining tables created yet. Go to Tables settings to add tables.
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

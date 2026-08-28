@@ -20,6 +20,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     // Items Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItemId, setEditingItemId] = useState(null);
+    const [dealSearchQuery, setDealSearchQuery] = useState('');
 
     const itemForm = useForm({
         name: '',
@@ -49,6 +50,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     // Handlers for Items
     const openItemModal = (item = null) => {
         clearErrors();
+        setDealSearchQuery('');
         if (item) {
             setEditingItemId(item.id);
             const hasVar = Boolean(item.variants && item.variants.length > 0);
@@ -63,7 +65,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                 has_variants: hasVar,
                 variants: hasVar ? item.variants.map(v => ({ name: v.name, price: v.price, cost_price: v.cost_price || '' })) : [],
                 ingredients: item.ingredients ? item.ingredients.map(ing => ({ id: String(ing.id), quantity: ing.pivot.quantity })) : [],
-                dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), quantity: di.pivot.quantity })) : [],
+                dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), variant_id: di.pivot?.variant_id ? String(di.pivot.variant_id) : '', quantity: di.pivot.quantity })) : [],
                 image: null,
                 _method: 'post'
             });
@@ -158,8 +160,8 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     };
 
     // Deal Item Handlers
-    const addDealItem = () => {
-        setData('dealItems', [...data.dealItems, { id: '', quantity: 1 }]);
+    const addDealItem = (itemId = '', variantId = '') => {
+        setData('dealItems', [...data.dealItems, { id: String(itemId), variant_id: String(variantId), quantity: 1 }]);
     };
 
     const removeDealItem = (index) => {
@@ -171,6 +173,14 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
     const updateDealItem = (index, field, value) => {
         const newDealItems = [...data.dealItems];
         newDealItems[index][field] = value;
+        if (field === 'id') {
+            const selectedItem = menuItems.find(m => String(m.id) === String(value));
+            if (selectedItem && selectedItem.variants && selectedItem.variants.length > 0) {
+                newDealItems[index]['variant_id'] = String(selectedItem.variants[0].id);
+            } else {
+                newDealItems[index]['variant_id'] = '';
+            }
+        }
         setData('dealItems', newDealItems);
     };
 
@@ -432,8 +442,8 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
 
             {/* Menu Item Modal */}
             {isItemModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-auto flex flex-col max-h-[85vh]">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+                    <div className="bg-white rounded-2xl w-full max-w-xl sm:max-w-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
                             <h2 className="text-lg font-bold text-gray-900">
                                 {editingItemId ? 'Edit Menu Item' : 'Add Menu Item'}
@@ -442,7 +452,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleItemSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+                        <form onSubmit={handleItemSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Item/Deal Name</label>
@@ -533,13 +543,13 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
 
                                         <div className="space-y-2">
                                             {data.variants.map((variant, index) => (
-                                                <div key={index} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
+                                                <div key={index} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs min-w-0">
                                                     <input
                                                         type="text"
                                                         placeholder="Size Name (e.g. Small)"
                                                         value={variant.name}
                                                         onChange={e => updateVariant(index, 'name', e.target.value)}
-                                                        className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
                                                         required
                                                     />
                                                     <input
@@ -549,7 +559,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                                         placeholder={`Price (${currency})`}
                                                         value={variant.price}
                                                         onChange={e => updateVariant(index, 'price', e.target.value)}
-                                                        className="w-24 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
                                                         required
                                                     />
                                                     <input
@@ -559,12 +569,12 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                                         placeholder={`Cost (${currency})`}
                                                         value={variant.cost_price}
                                                         onChange={e => updateVariant(index, 'cost_price', e.target.value)}
-                                                        className="w-24 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
                                                     />
                                                     <button 
                                                         type="button" 
                                                         onClick={() => removeVariant(index)} 
-                                                        className="p-1 text-red-500 hover:bg-red-50 rounded-md"
+                                                        className="p-1 text-red-500 hover:bg-red-50 rounded-md shrink-0"
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
@@ -636,44 +646,124 @@ export default function Menu({ categories = [], menuItems = [], inventory = [], 
                                 {data.is_deal ? (
                                     <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
                                         <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">Deal Builder / Included Items</label>
-                                            <button type="button" onClick={addDealItem} className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded-md hover:bg-purple-100 flex items-center gap-1 font-medium">
-                                                <Plus className="w-3 h-3" /> Add Item
+                                            <label className="block text-sm font-bold text-gray-800">Deal Builder / Included Items</label>
+                                            <button type="button" onClick={() => addDealItem()} className="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-md hover:bg-purple-100 flex items-center gap-1 font-medium border border-purple-200">
+                                                <Plus className="w-3.5 h-3.5" /> Add Row
                                             </button>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-3">Select the menu items included in this deal.</p>
+                                        <p className="text-xs text-gray-500 mb-3">Search or select items and choose specific sizes/variants included in this combo deal.</p>
                                         
-                                        <div className="space-y-2">
-                                            {data.dealItems.map((di, index) => (
-                                                <div key={index} className="flex gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                                    <select
-                                                        value={di.id}
-                                                        onChange={e => updateDealItem(index, 'id', e.target.value)}
-                                                        className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                                        required
-                                                    >
-                                                        <option value="">Select Menu Item</option>
-                                                        {menuItems.filter(m => !m.is_deal && m.id !== editingItemId).map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name} ({currency}{m.price})</option>
-                                                        ))}
-                                                    </select>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={di.quantity}
-                                                        onChange={e => updateDealItem(index, 'quantity', e.target.value)}
-                                                        className="w-24 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                                        placeholder="Qty"
-                                                        required
-                                                    />
-                                                    <button type="button" onClick={() => removeDealItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md">
-                                                        <X className="w-4 h-4" />
+                                        {/* Quick Search Bar for Deal Items */}
+                                        <div className="mb-3 relative">
+                                            <div className="relative">
+                                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                <input 
+                                                    type="text"
+                                                    placeholder="Search item to add to deal (e.g. Zinger, Pizza)..."
+                                                    value={dealSearchQuery}
+                                                    onChange={e => setDealSearchQuery(e.target.value)}
+                                                    className="w-full pl-9 pr-8 py-2 text-xs border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none bg-purple-50/30"
+                                                />
+                                                {dealSearchQuery && (
+                                                    <button type="button" onClick={() => setDealSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                                        <X className="w-3.5 h-3.5" />
                                                     </button>
+                                                )}
+                                            </div>
+
+                                            {/* Live Search Results Popup */}
+                                            {dealSearchQuery.trim() !== '' && (
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-purple-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto divide-y divide-gray-100">
+                                                    {menuItems
+                                                        .filter(m => !m.is_deal && m.id !== editingItemId && m.name.toLowerCase().includes(dealSearchQuery.toLowerCase()))
+                                                        .map(item => (
+                                                            <div 
+                                                                key={item.id} 
+                                                                onClick={() => {
+                                                                    const firstVarId = item.variants && item.variants.length > 0 ? item.variants[0].id : '';
+                                                                    addDealItem(item.id, firstVarId);
+                                                                    setDealSearchQuery('');
+                                                                }}
+                                                                className="p-2.5 hover:bg-purple-50 cursor-pointer flex items-center justify-between transition-colors"
+                                                            >
+                                                                <div>
+                                                                    <div className="text-xs font-bold text-gray-800">{item.name}</div>
+                                                                    {item.variants && item.variants.length > 0 && (
+                                                                        <div className="text-[10px] text-purple-600 font-semibold">
+                                                                            {item.variants.length} Sizes Available ({item.variants.map(v => v.name).join(', ')})
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-xs font-bold text-primary bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                                                                    +{currency}{item.price}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    {menuItems.filter(m => !m.is_deal && m.id !== editingItemId && m.name.toLowerCase().includes(dealSearchQuery.toLowerCase())).length === 0 && (
+                                                        <div className="p-3 text-xs text-gray-400 text-center">No items matching "{dealSearchQuery}"</div>
+                                                    )}
                                                 </div>
-                                            ))}
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2.5">
+                                            {data.dealItems.map((di, index) => {
+                                                const selectedItem = menuItems.find(m => String(m.id) === String(di.id));
+                                                const hasVariants = selectedItem?.variants && selectedItem.variants.length > 0;
+
+                                                return (
+                                                    <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                                                        <select
+                                                            value={di.id}
+                                                            onChange={e => updateDealItem(index, 'id', e.target.value)}
+                                                            className="flex-1 min-w-0 w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-white font-medium"
+                                                            required
+                                                        >
+                                                            <option value="">Select Menu Item</option>
+                                                            {menuItems.filter(m => !m.is_deal && m.id !== editingItemId).map(m => (
+                                                                <option key={m.id} value={m.id}>
+                                                                    {m.name} ({currency}{m.price}){m.variants && m.variants.length > 0 ? ' [Multi-Size]' : ''}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+
+                                                        {/* Variant Selector Dropdown if Item has Variants */}
+                                                        {hasVariants && (
+                                                            <select
+                                                                value={di.variant_id || ''}
+                                                                onChange={e => updateDealItem(index, 'variant_id', e.target.value)}
+                                                                className="w-full sm:w-36 px-2.5 py-1.5 text-xs border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-purple-50 text-purple-900 font-bold"
+                                                                required
+                                                            >
+                                                                <option value="">Select Size</option>
+                                                                {selectedItem.variants.map(v => (
+                                                                    <option key={v.id} value={v.id}>
+                                                                        {v.name} ({currency}{v.price})
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        )}
+
+                                                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={di.quantity}
+                                                                onChange={e => updateDealItem(index, 'quantity', e.target.value)}
+                                                                className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-white text-center font-bold"
+                                                                placeholder="Qty"
+                                                                required
+                                                            />
+                                                            <button type="button" onClick={() => removeDealItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md shrink-0">
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                             {data.dealItems.length === 0 && (
-                                                <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm text-gray-500">
-                                                    No items added to deal.
+                                                <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-xs text-gray-500">
+                                                    No items added to deal yet. Type above to search or click "+ Add Row".
                                                 </div>
                                             )}
                                         </div>
