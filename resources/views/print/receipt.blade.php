@@ -105,13 +105,20 @@ if (!function_exists('getBarcodeSVG')) {
         <div class="details mb-2">
             <p>Date : {{ $order->created_at->format('d/m/Y, h:i A') }}</p>
             <p class="font-bold" style="font-size: 13px; text-transform: uppercase;">Bill No: #{{ $order->id }}</p>
-            <p>Type: {{ ucfirst($order->order_type) }}</p>
+            <p>Type: {{ ucfirst(str_replace('_', ' ', $order->order_type)) }}</p>
+            <p class="font-bold">Payment Method: {{ str_replace('Payment via ', '', $order->notes ?? 'Cash') }}</p>
             <p>Payment Status: {{ ucfirst($order->payment_status) }}</p>
             @if($order->customer_name)
                 <p class="font-bold mt-1">Customer: {{ $order->customer_name }}</p>
             @endif
+            @if($order->customer_phone)
+                <p class="font-bold">Phone: {{ $order->customer_phone }}</p>
+            @endif
+            @if($order->delivery_address)
+                <p class="font-bold" style="margin-top: 4px; border: 1px dashed #000; padding: 4px;">Delivery Address:<br>{{ $order->delivery_address }}</p>
+            @endif
             @if($order->table)
-                <p>Table: {{ $order->table->name }}</p>
+                <p>Table: {{ $order->table->name ?? $order->table->table_number }}</p>
             @endif
         </div>
 

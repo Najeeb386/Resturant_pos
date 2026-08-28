@@ -52,9 +52,18 @@
         <!-- Order Details -->
         <div class="details mb-2">
             <p>Date: {{ $order->created_at->format('d/m/Y, h:i A') }}</p>
-            <p>Type: <span class="highlight">{{ strtoupper($order->order_type) }}</span></p>
+            <p>Type: <span class="highlight">{{ strtoupper(str_replace('_', ' ', $order->order_type)) }}</span></p>
+            @if($order->customer_name)
+                <p>Customer: <span class="highlight">{{ $order->customer_name }}</span></p>
+            @endif
+            @if($order->customer_phone)
+                <p>Phone: <span class="highlight">{{ $order->customer_phone }}</span></p>
+            @endif
+            @if($order->delivery_address)
+                <p style="border: 1px dashed #000; padding: 4px; margin-top: 4px;">Address:<br><span class="highlight">{{ $order->delivery_address }}</span></p>
+            @endif
             @if($order->table)
-                <p>Table: <span class="highlight">{{ $order->table->name }}</span></p>
+                <p>Table: <span class="highlight">{{ $order->table->name ?? $order->table->table_number }}</span></p>
             @endif
         </div>
 

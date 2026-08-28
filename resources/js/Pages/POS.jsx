@@ -827,10 +827,28 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                             <div className="text-center mb-6 border-b border-dashed border-gray-300 pb-6">
                                 <h2 className="text-2xl font-bold mb-1">RESTAURANT RECEIPT</h2>
                                 <p className="text-gray-500 text-sm">{lastOrder.date}</p>
-                                <p className="text-gray-500 text-sm">
-                                    Order #{lastOrder.order_id} | {lastOrder.table}
-                                    {lastOrder.customer && ` | ${lastOrder.customer}`}
+                                <p className="text-gray-900 font-bold text-base mt-1">
+                                    Order #{lastOrder.order_id} ({lastOrder.table})
                                 </p>
+                                <p className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded-md inline-block mt-1">
+                                    Payment Method: {lastOrder.method || 'Cash'}
+                                </p>
+                                {lastOrder.customer && (
+                                    <p className="text-gray-800 text-sm font-semibold mt-1">
+                                        Customer: {lastOrder.customer}
+                                    </p>
+                                )}
+                                {lastOrder.phone && (
+                                    <p className="text-gray-800 text-xs font-medium">
+                                        Phone: {lastOrder.phone}
+                                    </p>
+                                )}
+                                {lastOrder.address && (
+                                    <p className="text-gray-700 text-xs mt-1.5 bg-gray-50 p-2 rounded-lg border border-gray-200 text-left">
+                                        <strong>Delivery Address:</strong><br />
+                                        {lastOrder.address}
+                                    </p>
+                                )}
                             </div>
                             
                             <div className="space-y-3 mb-6">
