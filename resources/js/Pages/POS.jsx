@@ -435,179 +435,177 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </div>
 
                 {/* Right Side: Cart */}
-                <div className={`w-full lg:w-[350px] xl:w-[380px] shrink-0 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`w-full lg:w-[350px] xl:w-[380px] shrink-0 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-y-auto max-h-full ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
                     
-                    {/* Scrollable Top & Cart Items */}
-                    <div className="flex-1 overflow-y-auto flex flex-col">
-                        <div className="p-3.5 sm:p-4 border-b border-gray-100 bg-gray-50 space-y-3 shrink-0">
-                            <div className="flex items-center justify-between">
-                                <h2 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                                    Current Order
-                                </h2>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => setShowDraftsModal(true)}
-                                        className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs px-2.5 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 border border-amber-300/60 shadow-2xs"
-                                    >
-                                        Drafts
-                                        <span className="bg-amber-300 text-amber-900 rounded px-1.5 py-0.2 text-[10px] font-black">{allDrafts?.length || 0}</span>
-                                    </button>
-                                    <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-extrabold">
-                                        {cart.length} items
-                                    </span>
-                                </div>
+                    {/* Header & Order Setup */}
+                    <div className="p-3.5 sm:p-4 border-b border-gray-100 bg-gray-50 space-y-3 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold text-base sm:text-lg flex items-center gap-2">
+                                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                                Current Order
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setShowDraftsModal(true)}
+                                    className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs px-2.5 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 border border-amber-300/60 shadow-2xs"
+                                >
+                                    Drafts
+                                    <span className="bg-amber-300 text-amber-900 rounded px-1.5 py-0.2 text-[10px] font-black">{allDrafts?.length || 0}</span>
+                                </button>
+                                <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-extrabold">
+                                    {cart.length} items
+                                </span>
                             </div>
+                        </div>
 
-                            {/* Customer Name */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Name (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                    placeholder="Walk-in Customer"
-                                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                                />
-                            </div>
+                        {/* Customer Name */}
+                        <div>
+                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Walk-in Customer"
+                                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                            />
+                        </div>
 
-                            {/* Order Type Segmented Toggle */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Order Type</label>
-                                <div className="grid grid-cols-3 gap-1 bg-gray-200/80 p-1 rounded-xl">
-                                    {[
-                                        { key: 'takeaway', label: '🛍️ Takeaway' },
-                                        { key: 'dine_in', label: '🍽️ Dine In' },
-                                        { key: 'delivery', label: '🚚 Delivery' }
-                                    ].map(type => (
-                                        <button
-                                            key={type.key}
-                                            type="button"
-                                            disabled={isWaiter && type.key !== 'dine_in'}
-                                            onClick={() => {
-                                                setOrderType(type.key);
-                                                if (type.key !== 'dine_in') {
-                                                    setSelectedTable('');
-                                                } else if (!selectedTable && tables.length > 0) {
-                                                    setShowTableModal(true);
-                                                }
-                                            }}
-                                            className={`py-1.5 px-1 text-[11px] sm:text-xs font-black rounded-lg transition-all text-center whitespace-nowrap ${
-                                                orderType === type.key
-                                                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
-                                                : 'text-gray-600 hover:text-gray-900'
-                                            } ${isWaiter && type.key !== 'dine_in' ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                        >
-                                            {type.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Table Status Card (Only for Dine In) */}
-                            {orderType === 'dine_in' && (
-                                <div className="bg-orange-50/90 border border-orange-200 p-2.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="text-[10px] font-black text-orange-800 uppercase tracking-wider">Dining Table</div>
-                                        <div className="text-xs font-extrabold text-gray-900 truncate mt-0.5 flex items-center gap-1.5">
-                                            {selectedTable ? (
-                                                <>
-                                                    <span className="text-orange-950 font-black">🪑 Table {tables.find(t => t.id == selectedTable)?.table_number || selectedTable}</span>
-                                                    {openBills[selectedTable] && (
-                                                        <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold shrink-0">
-                                                            Active ({currency}{openBills[selectedTable].total.toFixed(2)})
-                                                        </span>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <span className="text-red-600 font-bold flex items-center gap-1">
-                                                    ⚠️ No table selected
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
+                        {/* Order Type Segmented Toggle */}
+                        <div>
+                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Order Type</label>
+                            <div className="grid grid-cols-3 gap-1 bg-gray-200/80 p-1 rounded-xl">
+                                {[
+                                    { key: 'takeaway', label: '🛍️ Takeaway' },
+                                    { key: 'dine_in', label: '🍽️ Dine In' },
+                                    { key: 'delivery', label: '🚚 Delivery' }
+                                ].map(type => (
                                     <button
+                                        key={type.key}
                                         type="button"
-                                        onClick={() => setShowTableModal(true)}
-                                        className="bg-white hover:bg-orange-100 text-orange-900 text-xs font-extrabold px-2.5 py-1.5 rounded-lg border border-orange-300 transition-colors shadow-2xs shrink-0"
+                                        disabled={isWaiter && type.key !== 'dine_in'}
+                                        onClick={() => {
+                                            setOrderType(type.key);
+                                            if (type.key !== 'dine_in') {
+                                                setSelectedTable('');
+                                            } else if (!selectedTable && tables.length > 0) {
+                                                setShowTableModal(true);
+                                            }
+                                        }}
+                                        className={`py-1.5 px-1 text-[11px] sm:text-xs font-black rounded-lg transition-all text-center whitespace-nowrap ${
+                                            orderType === type.key
+                                            ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                        } ${isWaiter && type.key !== 'dine_in' ? 'opacity-40 cursor-not-allowed' : ''}`}
                                     >
-                                        {selectedTable ? 'Change Table' : 'Select Table'}
+                                        {type.label}
                                     </button>
-                                </div>
-                            )}
-
-                            {/* Delivery Fields */}
-                            {orderType === 'delivery' && (
-                                <div className="space-y-2">
-                                    <div>
-                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Phone</label>
-                                        <input
-                                            type="text"
-                                            value={customerPhone}
-                                            onChange={(e) => setCustomerPhone(e.target.value)}
-                                            placeholder="Enter phone number"
-                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Address</label>
-                                        <textarea
-                                            value={deliveryAddress}
-                                            onChange={(e) => setDeliveryAddress(e.target.value)}
-                                            placeholder="Enter full address"
-                                            rows="2"
-                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none bg-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Fee ({currency})</label>
-                                        <input
-                                            type="number"
-                                            value={deliveryFee}
-                                            onChange={(e) => setDeliveryFee(e.target.value)}
-                                            placeholder="0.00"
-                                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Cart Items */}
-                        <div className="flex-1 p-4 space-y-4">
-                            {cart.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                                    <ShoppingCart className="w-12 h-12 mb-2 opacity-50" />
-                                    <p>No items in cart yet</p>
+                        {/* Table Status Card (Only for Dine In) */}
+                        {orderType === 'dine_in' && (
+                            <div className="bg-orange-50/90 border border-orange-200 p-2.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[10px] font-black text-orange-800 uppercase tracking-wider">Dining Table</div>
+                                    <div className="text-xs font-extrabold text-gray-900 truncate mt-0.5 flex items-center gap-1.5">
+                                        {selectedTable ? (
+                                            <>
+                                                <span className="text-orange-950 font-black">🪑 Table {tables.find(t => t.id == selectedTable)?.table_number || selectedTable}</span>
+                                                {openBills[selectedTable] && (
+                                                    <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                        Active ({currency}{openBills[selectedTable].total.toFixed(2)})
+                                                    </span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span className="text-red-600 font-bold flex items-center gap-1">
+                                                ⚠️ No table selected
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            ) : (
-                                cart.map((item, index) => {
-                                    const itemKey = item.cart_key || item.id;
-                                    return (
-                                        <div key={itemKey || index} className="flex items-center justify-between gap-4">
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-gray-800 text-sm">{item.name}</h4>
-                                                <p className="text-primary font-bold text-sm">{currency}{(item.price * item.qty).toFixed(2)}</p>
-                                            </div>
-                                            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-gray-100">
-                                                <button onClick={() => updateQty(itemKey, -1)} className="p-1 hover:bg-white rounded-lg text-gray-500 transition-colors">
-                                                    {item.qty === 1 ? <Trash2 className="w-4 h-4 text-red-500" /> : <Minus className="w-4 h-4" />}
-                                                </button>
-                                                <span className="w-4 text-center font-semibold text-sm">{item.qty}</span>
-                                                <button onClick={() => updateQty(itemKey, 1)} className="p-1 hover:bg-white rounded-lg text-primary transition-colors">
-                                                    <Plus className="w-4 h-4" />
-                                                </button>
-                                            </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTableModal(true)}
+                                    className="bg-white hover:bg-orange-100 text-orange-900 text-xs font-extrabold px-2.5 py-1.5 rounded-lg border border-orange-300 transition-colors shadow-2xs shrink-0"
+                                >
+                                    {selectedTable ? 'Change Table' : 'Select Table'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Delivery Fields */}
+                        {orderType === 'delivery' && (
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Customer Phone</label>
+                                    <input
+                                        type="text"
+                                        value={customerPhone}
+                                        onChange={(e) => setCustomerPhone(e.target.value)}
+                                        placeholder="Enter phone number"
+                                        className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Address</label>
+                                    <textarea
+                                        value={deliveryAddress}
+                                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                                        placeholder="Enter full address"
+                                        rows="2"
+                                        className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Delivery Fee ({currency})</label>
+                                    <input
+                                        type="number"
+                                        value={deliveryFee}
+                                        onChange={(e) => setDeliveryFee(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Cart Items */}
+                    <div className="p-4 space-y-3 min-h-[140px]">
+                        {cart.length === 0 ? (
+                            <div className="py-8 flex flex-col items-center justify-center text-gray-400">
+                                <ShoppingCart className="w-10 h-10 mb-2 opacity-40" />
+                                <p className="text-xs font-semibold">No items in order yet</p>
+                            </div>
+                        ) : (
+                            cart.map((item, index) => {
+                                const itemKey = item.cart_key || item.id;
+                                return (
+                                    <div key={itemKey || index} className="flex items-center justify-between gap-3 p-2 bg-gray-50/80 rounded-xl border border-gray-100">
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-gray-800 text-xs sm:text-sm truncate">{item.name}</h4>
+                                            <p className="text-primary font-black text-xs">{currency}{(item.price * item.qty).toFixed(2)}</p>
                                         </div>
-                                    );
-                                })
-                            )}
-                        </div>
+                                        <div className="flex items-center gap-2 bg-white rounded-lg p-1 border border-gray-200 shadow-2xs shrink-0">
+                                            <button onClick={() => updateQty(itemKey, -1)} className="p-1 hover:bg-gray-100 rounded text-gray-600 transition-colors">
+                                                {item.qty === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
+                                            </button>
+                                            <span className="w-4 text-center font-bold text-xs text-gray-900">{item.qty}</span>
+                                            <button onClick={() => updateQty(itemKey, 1)} className="p-1 hover:bg-gray-100 rounded text-primary transition-colors">
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
 
                     {/* Totals & Payment */}
-                    <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
+                    <div className="p-4 border-t border-gray-100 bg-gray-50/50 mt-auto">
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-gray-500 text-sm">
                                 <span>Subtotal</span>

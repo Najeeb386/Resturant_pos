@@ -31,6 +31,15 @@ Route::get('/login', function () {
 Route::get('/table-order/{restaurant}/{table}', [\App\Http\Controllers\CustomerOrderController::class, 'showMenu'])->name('customer.qr.menu');
 Route::post('/table-order/checkout', [\App\Http\Controllers\CustomerOrderController::class, 'storeOrder'])->name('customer.qr.checkout');
 
+// Storage Fallback Route (fixes Hostinger 403 Forbidden symlink restriction)
+Route::get('/storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath)) {
+        abort(404);
+    }
+    return response()->file($filePath);
+})->where('path', '.*');
+
 Route::post('/login', [App\Http\Controllers\API\AuthController::class, 'login'])->middleware('guest');
 
 Route::get('/register', function () {
