@@ -106,6 +106,9 @@ class MenuController extends Controller
 
             if ($request->hasFile('image')) {
                 $data['image'] = $request->file('image')->store("restaurants/{$data['restaurant_id']}/menu", 'public');
+                $fullPath = storage_path('app/public/' . $data['image']);
+                @chmod($fullPath, 0644);
+                @chmod(dirname($fullPath), 0755);
             }
 
             if ($request->is_deal && $request->has('dealItems')) {
@@ -215,6 +218,9 @@ class MenuController extends Controller
                     Storage::disk('public')->delete($menuItem->image);
                 }
                 $data['image'] = $request->file('image')->store("restaurants/{$menuItem->restaurant_id}/menu", 'public');
+                $fullPath = storage_path('app/public/' . $data['image']);
+                @chmod($fullPath, 0644);
+                @chmod(dirname($fullPath), 0755);
             }
 
             if ($request->is_deal && $request->has('dealItems')) {

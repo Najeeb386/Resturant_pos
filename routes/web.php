@@ -34,11 +34,80 @@ Route::post('/table-order/checkout', [\App\Http\Controllers\CustomerOrderControl
 // Storage Fallback Route (fixes Hostinger 403 Forbidden symlink restriction)
 Route::get('/storage/{path}', function ($path) {
     $filePath = storage_path('app/public/' . $path);
-    if (!file_exists($filePath)) {
+    if (!file_exists($filePath) || is_dir($filePath)) {
         abort(404);
     }
-    return response()->file($filePath);
+    return response()->file($filePath, [
+        'Access-Control-Allow-Origin' => '*',
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
 })->where('path', '.*');
+
+// One-click Storage Permission & Symlink Fixer Route
+Route::get('/fix-storage', function () {
+    try {
+        $publicPath = storage_path('app/public');
+        if (!file_exists($publicPath)) {
+            @mkdir($publicPath, 0755, true);
+        }
+
+        // Create .htaccess inside storage/app/public
+        $htaccessPath = $publicPath . '/.htaccess';
+        $htaccessContent = "<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Allow from all\n</IfModule>\n";
+        @file_put_contents($htaccessPath, $htaccessContent);
+        @chmod($htaccessPath, 0644);
+
+        // Symlink re-creation if missing
+        $target = storage_path('app/public');
+        $shortcut = public_path('storage');
+        if (!file_exists($shortcut)) {
+            @symlink($target, $shortcut);
+        }
+
+        if (function_exists('shell_exec')) {
+            @shell_exec('chmod -R 755 ' . escapeshellarg($publicPath));
+            @shell_exec('find ' . escapeshellarg($publicPath) . ' -type f -exec chmod 644 {} +');
+        }
+
+        // Recursively fix directory and file permissions
+        $fixedCount = 0;
+        if (file_exists($publicPath)) {
+            try {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($publicPath, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::SELF_FIRST
+                );
+
+                foreach ($iterator as $item) {
+                    try {
+                        if ($item->isDir()) {
+                            @chmod($item->getPathname(), 0755);
+                        } else {
+                            @chmod($item->getPathname(), 0644);
+                        }
+                        $fixedCount++;
+                    } catch (\Throwable $err) {
+                        // Suppress individual permission failures
+                    }
+                }
+            } catch (\Throwable $err) {
+                // Suppress iterator failure
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Storage permissions updated cleanly on {$fixedCount} items!",
+            'htaccess_created' => file_exists($htaccessPath),
+            'symlink_exists' => file_exists($shortcut),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'warning',
+            'message' => $e->getMessage()
+        ], 200);
+    }
+});
 
 Route::post('/login', [App\Http\Controllers\API\AuthController::class, 'login'])->middleware('guest');
 

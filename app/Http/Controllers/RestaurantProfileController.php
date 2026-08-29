@@ -53,6 +53,9 @@ class RestaurantProfileController extends Controller
                 Storage::disk('public')->delete($restaurant->logo);
             }
             $path = $request->file('logo')->store("restaurants/{$restaurant->id}/logo", 'public');
+            $fullPath = storage_path('app/public/' . $path);
+            @chmod($fullPath, 0644);
+            @chmod(dirname($fullPath), 0755);
             $data['logo'] = $path;
         }
 
