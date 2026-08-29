@@ -103,8 +103,8 @@ export default function Dashboard({ user, stats, salesChartData = [], recentOrde
                             </span>
                         </CardHeader>
                         <CardContent>
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[300px] w-full min-h-[300px]" style={{ minHeight: 300 }}>
+                                <ResponsiveContainer width="100%" height={300} minWidth={0}>
                                     <BarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} dy={10} />
