@@ -353,6 +353,53 @@ Route::middleware('auth')->group(function () {
 
             return back()->with('success', 'Currency settings saved');
         });
+
+        Route::post('/settings/smtp', function (\Illuminate\Http\Request $request) {
+            $request->validate([
+                'mail_host' => 'required|string',
+                'mail_port' => 'required|integer',
+                'mail_username' => 'required|string',
+                'mail_password' => 'nullable|string',
+                'mail_encryption' => 'nullable|string',
+                'mail_from_address' => 'required|email',
+                'mail_from_name' => 'required|string',
+            ]);
+
+            \DB::table('platform_settings')->updateOrInsert(
+                ['id' => 1],
+                [
+                    'mail_mailer' => 'smtp',
+                    'mail_host' => trim($request->mail_host),
+                    'mail_port' => (int)$request->mail_port,
+                    'mail_username' => trim($request->mail_username),
+                    'mail_password' => $request->mail_password ?? '',
+                    'mail_encryption' => trim($request->mail_encryption ?? 'tls'),
+                    'mail_from_address' => trim($request->mail_from_address),
+                    'mail_from_name' => trim($request->mail_from_name),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+
+            return back()->with('success', 'SMTP Mail Server settings saved successfully!');
+        });
+
+        Route::post('/settings/test-smtp', function (\Illuminate\Http\Request $request) {
+            $request->validate(['test_email' => 'required|email']);
+            
+            \App\Helpers\MailConfigHelper::applySettings();
+
+            try {
+                \Illuminate\Support\Facades\Mail::raw('Hello! This is a test email sent from DineDesk POS SaaS Admin Portal to verify your SMTP server configuration.', function ($message) use ($request) {
+                    $message->to($request->test_email)
+                            ->subject('DineDesk POS - SMTP Test Email');
+                });
+
+                return back()->with('success', 'Test email sent successfully to ' . $request->test_email);
+            } catch (\Throwable $e) {
+                return back()->with('error', 'SMTP Test Failed: ' . $e->getMessage());
+            }
+        });
     });
 
     Route::post('/logout', function (\Illuminate\Http\Request $request) {
@@ -362,3 +409,9 @@ Route::middleware('auth')->group(function () {
         return redirect('/login');
     });
 });
+
+// Forgot Password & OTP Routes (Public Guest)
+Route::post('/forgot-password/send-otp', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendOtp']);
+Route::post('/forgot-password/verify-otp', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'verifyOtp']);
+Route::post('/forgot-password/reset-password', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'resetPassword']);
+

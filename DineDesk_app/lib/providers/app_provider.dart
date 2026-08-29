@@ -206,8 +206,61 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  DateTime? _lastOnlineSyncDate;
+  String _subscriptionStatus = 'active';
+  bool _isSuperAdmin = false;
+  List<String> _allowedFeatures = ['pos_billing', 'tables', 'kitchen', 'orders', 'menu', 'inventory', 'expenses', 'reports', 'staff', '3d_studio'];
+
+  DateTime? get lastOnlineSyncDate => _lastOnlineSyncDate;
+  String get subscriptionStatus => _subscriptionStatus;
+  bool get isSuperAdmin => _isSuperAdmin;
+  List<String> get allowedFeatures => _allowedFeatures;
+
+  int get offlineDaysCount {
+    if (_lastOnlineSyncDate == null) return 0;
+    return DateTime.now().difference(_lastOnlineSyncDate!).inDays;
+  }
+
+  bool get isOfflineLocked => offlineDaysCount >= 7;
+  bool get isSubscriptionLocked => _subscriptionStatus == 'expired' || _subscriptionStatus == 'canceled';
+
+  bool isFeatureAllowed(String feature) {
+    if (_isSuperAdmin) return true;
+    if (_allowedFeatures.isEmpty) return true;
+    return _allowedFeatures.contains(feature);
+  }
+
+  Future<void> _loadStateFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? syncStr = prefs.getString('last_online_sync_date');
+    if (syncStr != null) {
+      _lastOnlineSyncDate = DateTime.tryParse(syncStr);
+    } else {
+      _lastOnlineSyncDate = DateTime.now(); // Initial login timestamp
+      await prefs.setString('last_online_sync_date', _lastOnlineSyncDate!.toIso8601String());
+    }
+
+    _subscriptionStatus = prefs.getString('subscription_status') ?? 'active';
+    _isSuperAdmin = prefs.getBool('is_super_admin') ?? false;
+    List<String>? savedFeatures = prefs.getStringList('allowed_features');
+    if (savedFeatures != null && savedFeatures.isNotEmpty) {
+      _allowedFeatures = savedFeatures;
+    }
+  }
+
+  Future<void> _saveStateToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_lastOnlineSyncDate != null) {
+      await prefs.setString('last_online_sync_date', _lastOnlineSyncDate!.toIso8601String());
+    }
+    await prefs.setString('subscription_status', _subscriptionStatus);
+    await prefs.setBool('is_super_admin', _isSuperAdmin);
+    await prefs.setStringList('allowed_features', _allowedFeatures);
+  }
+
   // --- Load Data Offline & Sync ---
   Future<void> loadLocalData() async {
+    await _loadStateFromPrefs();
     _categories = await _dbService.getCategories();
     _menuItems = await _dbService.getMenuItems();
     _tables = await _dbService.getTables();
@@ -230,6 +283,19 @@ class AppProvider extends ChangeNotifier {
 
     try {
       var data = await ApiService.fetchBootstrapData();
+
+      if (data['tenant_subscription'] != null) {
+        var sub = data['tenant_subscription'];
+        _subscriptionStatus = sub['status'] ?? 'active';
+        _isSuperAdmin = sub['isSuperAdmin'] == true;
+        if (sub['features'] != null && sub['features'] is List) {
+          _allowedFeatures = List<String>.from(sub['features']);
+        }
+      }
+
+      _lastOnlineSyncDate = DateTime.now();
+      await _saveStateToPrefs();
+
       if (data['categories'] != null) {
         _categories = (data['categories'] as List).map((c) => MenuCategory.fromJson(c)).toList();
         await _dbService.saveCategories(_categories);

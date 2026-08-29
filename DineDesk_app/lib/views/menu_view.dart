@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../services/api_service.dart';
 
 class MenuView extends StatelessWidget {
   const MenuView({super.key});
@@ -24,9 +25,20 @@ class MenuView extends StatelessWidget {
               side: BorderSide(color: Colors.grey.shade200),
             ),
             child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.deepOrange.shade50,
-                child: const Text('🍽️'),
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  color: Colors.deepOrange.shade50,
+                  child: item.image != null && item.image!.isNotEmpty
+                      ? Image.network(
+                          ApiService.getImageUrl(item.image),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Center(child: Text('🍽️', style: TextStyle(fontSize: 20))),
+                        )
+                      : const Center(child: Text('🍽️', style: TextStyle(fontSize: 20))),
+                ),
               ),
               title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(

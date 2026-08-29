@@ -435,9 +435,9 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                 </div>
 
                 {/* Right Side: Cart */}
-                <div className={`w-full lg:w-[350px] xl:w-[380px] shrink-0 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+                <div className={`w-full lg:w-[350px] xl:w-[380px] shrink-0 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-y-auto max-h-full ${mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
                     
-                    {/* Header & Order Setup (Top Fixed) */}
+                    {/* Header & Order Setup */}
                     <div className="p-3.5 sm:p-4 border-b border-gray-100 bg-gray-50 space-y-3 shrink-0">
                         <div className="flex items-center justify-between">
                             <h2 className="font-bold text-base sm:text-lg flex items-center gap-2">
@@ -573,10 +573,10 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                         )}
                     </div>
 
-                    {/* Cart Items (Middle Dedicated Scroll Area) */}
-                    <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5 min-h-0">
+                    {/* Cart Items List */}
+                    <div className="p-3.5 sm:p-4 space-y-2.5">
                         {cart.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center py-12 text-gray-400">
+                            <div className="py-8 flex flex-col items-center justify-center text-gray-400">
                                 <ShoppingCart className="w-10 h-10 mb-2 opacity-40" />
                                 <p className="text-xs font-semibold">No items in order yet</p>
                             </div>
@@ -604,8 +604,8 @@ export default function POS({ categories = [], menuItems = [], tables = [], rest
                         )}
                     </div>
 
-                    {/* Totals & Payment (Bottom Fixed) */}
-                    <div className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/90 shrink-0 shadow-xs">
+                    {/* Totals & Payment */}
+                    <div className="p-3.5 sm:p-4 border-t border-gray-100 bg-gray-50/90 shrink-0 shadow-xs mt-auto">
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-gray-500 text-sm">
                                 <span>Subtotal</span>

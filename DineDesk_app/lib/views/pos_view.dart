@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 
 class PosView extends StatelessWidget {
   const PosView({super.key});
@@ -137,7 +138,18 @@ class PosView extends StatelessWidget {
                                   children: [
                                     Opacity(
                                       opacity: isOutOfStock ? 0.35 : 1.0,
-                                      child: const Text('🍽️', style: TextStyle(fontSize: 32)),
+                                      child: item.image != null && item.image!.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Image.network(
+                                                ApiService.getImageUrl(item.image),
+                                                height: 48,
+                                                width: 48,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => const Text('🍽️', style: TextStyle(fontSize: 32)),
+                                              ),
+                                            )
+                                          : const Text('🍽️', style: TextStyle(fontSize: 32)),
                                     ),
                                     Text(
                                       item.name,

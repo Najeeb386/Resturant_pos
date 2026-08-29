@@ -12,26 +12,11 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  final _emailController = TextEditingController(text: 'owner@restaurant.com');
-  final _passwordController = TextEditingController(text: 'password');
-  late TextEditingController _urlController;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _loading = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _urlController = TextEditingController(text: ApiService.defaultBaseUrl);
-    _loadSavedUrl();
-  }
-
-  Future<void> _loadSavedUrl() async {
-    await ApiService.initUrl();
-    setState(() {
-      _urlController.text = ApiService.baseUrl;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,16 +65,6 @@ class _LoginViewState extends State<LoginView> {
                     decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
                     child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
                   ),
-
-                TextField(
-                  controller: _urlController,
-                  decoration: InputDecoration(
-                    labelText: 'Server API URL',
-                    prefixIcon: const Icon(Icons.link),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-                const SizedBox(height: 14),
 
                 TextField(
                   controller: _emailController,
@@ -141,7 +116,6 @@ class _LoginViewState extends State<LoginView> {
     });
 
     try {
-      await ApiService.saveBaseUrl(_urlController.text.trim());
       await ApiService.login(_emailController.text.trim(), _passwordController.text.trim());
       
       if (mounted) {

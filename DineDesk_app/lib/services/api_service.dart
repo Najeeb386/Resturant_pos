@@ -10,6 +10,25 @@ class ApiService {
 
   static String baseUrl = defaultBaseUrl;
 
+  static String get serverDomain {
+    return 'https://dinedesk.thezerobug.com';
+  }
+
+  static String getImageUrl(String? path) {
+    if (path == null || path.trim().isEmpty) return '';
+    String cleanPath = path.trim();
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    if (cleanPath.startsWith('/')) {
+      cleanPath = cleanPath.substring(1);
+    }
+    if (cleanPath.startsWith('storage/')) {
+      return '$serverDomain/$cleanPath';
+    }
+    return '$serverDomain/storage/$cleanPath';
+  }
+
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('api_token');
