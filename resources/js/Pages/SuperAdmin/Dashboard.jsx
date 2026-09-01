@@ -81,7 +81,7 @@ export default function Dashboard({ stats = { mrr: '0.00', activeRestaurants: 0,
                         </CardHeader>
                         <CardContent>
                             <div className="h-[300px] w-full min-h-[300px]" style={{ minHeight: 300 }}>
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height={300} minWidth={0}>
                                     <BarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} dy={10} />

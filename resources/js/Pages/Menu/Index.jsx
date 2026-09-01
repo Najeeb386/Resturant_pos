@@ -3,18 +3,24 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Badge } from '../../Components/ui/Badge';
 import { Button } from '../../Components/ui/Button';
-import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, Image as ImageIcon, Search, Filter, Layers } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
+import { SwalConfirm, SwalAlert, SwalToast } from '../../Utils/swal';
 
-export default function Menu({ categories = [], menuItems = [], inventory = [] }) {
+export default function Menu({ categories = [], menuItems = [], inventory = [], currencySymbol, currency_symbol }) {
     const { auth, flash } = usePage().props;
     const isOwner = auth?.user?.role_id === 2;
+    const currency = currencySymbol || currency_symbol || auth?.user?.restaurant?.currency_symbol || '$';
+
     const [activeTab, setActiveTab] = useState('items'); // 'items' or 'categories'
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [stockFilter, setStockFilter] = useState('All'); // 'All' | 'in_stock' | 'out_of_stock'
     
     // Items Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItemId, setEditingItemId] = useState(null);
-    const fileInputRef = useRef(null);
+    const [dealSearchQuery, setDealSearchQuery] = useState('');
 
     const itemForm = useForm({
         name: '',
@@ -24,13 +30,15 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
         stock_quantity: 0,
         description: '',
         is_deal: false,
+        has_variants: false,
+        variants: [],
         ingredients: [],
         dealItems: [],
         image: null,
         _method: 'post'
     });
 
-    const { data, setData, post, delete: destroy, reset, clearErrors, errors, processing, progress } = itemForm;
+    const { data, setData, post, delete: destroy, reset, clearErrors, errors } = itemForm;
 
     // Categories Modal
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -42,8 +50,10 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
     // Handlers for Items
     const openItemModal = (item = null) => {
         clearErrors();
+        setDealSearchQuery('');
         if (item) {
             setEditingItemId(item.id);
+            const hasVar = Boolean(item.variants && item.variants.length > 0);
             setData({
                 name: item.name,
                 category_id: item.category_id,
@@ -52,10 +62,12 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                 stock_quantity: item.stock_quantity,
                 description: item.description || '',
                 is_deal: Boolean(item.is_deal),
+                has_variants: hasVar,
+                variants: hasVar ? item.variants.map(v => ({ name: v.name, price: v.price, cost_price: v.cost_price || '' })) : [],
                 ingredients: item.ingredients ? item.ingredients.map(ing => ({ id: String(ing.id), quantity: ing.pivot.quantity })) : [],
-                dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), quantity: di.pivot.quantity })) : [],
+                dealItems: item.deal_items ? item.deal_items.map(di => ({ id: String(di.id), variant_id: di.pivot?.variant_id ? String(di.pivot.variant_id) : '', quantity: di.pivot.quantity })) : [],
                 image: null,
-                _method: 'post' // We use POST for file uploads even on update
+                _method: 'post'
             });
         } else {
             setEditingItemId(null);
@@ -74,23 +86,63 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
 
     const handleItemSubmit = (e) => {
         e.preventDefault();
+
+        if (data.has_variants && data.variants.length === 0) {
+            SwalAlert({ title: 'No Sizes Added', text: 'Please add at least one size/variant or uncheck "Multiple Sizes".', icon: 'warning' });
+            return;
+        }
+
         if (editingItemId) {
             post(`/menu/item/${editingItemId}`, {
-                onSuccess: () => closeItemModal()
+                onSuccess: () => {
+                    closeItemModal();
+                    SwalToast('Menu item updated successfully');
+                }
             });
         } else {
             post('/menu/item', {
-                onSuccess: () => closeItemModal()
+                onSuccess: () => {
+                    closeItemModal();
+                    SwalToast('Menu item added successfully');
+                }
             });
         }
     };
 
     const handleDeleteItem = (id) => {
-        if (confirm('Are you sure you want to delete this menu item?')) {
-            destroy(`/menu/item/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Menu Item?',
+            text: 'Are you sure you want to delete this menu item?',
+            icon: 'warning',
+            confirmButtonText: 'Yes, delete it',
+            confirmButtonColor: '#ef4444',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/menu/item/${id}`, {
+                    onSuccess: () => SwalToast('Menu item deleted')
+                });
+            }
+        });
     };
 
+    // Variant Handlers
+    const addVariant = () => {
+        setData('variants', [...data.variants, { name: '', price: '', cost_price: '' }]);
+    };
+
+    const removeVariant = (index) => {
+        const newVariants = [...data.variants];
+        newVariants.splice(index, 1);
+        setData('variants', newVariants);
+    };
+
+    const updateVariant = (index, field, value) => {
+        const newVariants = [...data.variants];
+        newVariants[index][field] = value;
+        setData('variants', newVariants);
+    };
+
+    // Ingredient Handlers
     const addIngredient = () => {
         setData('ingredients', [...data.ingredients, { id: '', quantity: '' }]);
     };
@@ -107,8 +159,9 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
         setData('ingredients', newIngredients);
     };
 
-    const addDealItem = () => {
-        setData('dealItems', [...data.dealItems, { id: '', quantity: 1 }]);
+    // Deal Item Handlers
+    const addDealItem = (itemId = '', variantId = '') => {
+        setData('dealItems', [...data.dealItems, { id: String(itemId), variant_id: String(variantId), quantity: 1 }]);
     };
 
     const removeDealItem = (index) => {
@@ -120,6 +173,14 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
     const updateDealItem = (index, field, value) => {
         const newDealItems = [...data.dealItems];
         newDealItems[index][field] = value;
+        if (field === 'id') {
+            const selectedItem = menuItems.find(m => String(m.id) === String(value));
+            if (selectedItem && selectedItem.variants && selectedItem.variants.length > 0) {
+                newDealItems[index]['variant_id'] = String(selectedItem.variants[0].id);
+            } else {
+                newDealItems[index]['variant_id'] = '';
+            }
+        }
         setData('dealItems', newDealItems);
     };
 
@@ -139,22 +200,55 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
     const handleCategorySubmit = (e) => {
         e.preventDefault();
         categoryForm.post('/menu/category', {
-            onSuccess: () => closeCategoryModal()
+            onSuccess: () => {
+                closeCategoryModal();
+                SwalToast('Category saved successfully');
+            }
         });
     };
 
     const handleDeleteCategory = (id) => {
-        if (confirm('Are you sure you want to delete this category? All items in it will also be deleted!')) {
-            categoryForm.delete(`/menu/category/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Category?',
+            text: 'Are you sure you want to delete this category? All items in it will also be deleted!',
+            icon: 'warning',
+            confirmButtonText: 'Yes, delete category',
+            confirmButtonColor: '#ef4444',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                categoryForm.delete(`/menu/category/${id}`, {
+                    onSuccess: () => SwalToast('Category deleted')
+                });
+            }
+        });
     };
+
+    // Filter Menu Items and Categories in real-time
+    const filteredMenuItems = menuItems.filter(item => {
+        const categoryMatch = selectedCategory === 'All' || item.category_id == selectedCategory || item.category?.name === selectedCategory;
+        const stockMatch = stockFilter === 'All' || 
+            (stockFilter === 'in_stock' && item.stock_quantity > 0) ||
+            (stockFilter === 'out_of_stock' && item.stock_quantity <= 0);
+        const searchMatch = searchQuery === '' || 
+            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (item.category?.name && item.category.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return categoryMatch && stockMatch && searchMatch;
+    });
+
+    const filteredCategories = categories.filter(cat => {
+        return searchQuery === '' ||
+            cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (cat.description && cat.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    });
 
     return (
         <AdminLayout>
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Menu Management</h1>
-                    <p className="text-gray-500">Manage your menu items, categories, and stock quantities.</p>
+                    <p className="text-gray-500">Manage your menu items, custom sizes/variants, categories, and stock.</p>
                 </div>
                 {isOwner && (
                     <div className="flex gap-2 w-full sm:w-auto">
@@ -174,19 +268,61 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                 </div>
             )}
 
+            {/* Real-time Search & Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-xs border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:w-80">
+                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        type="text"
+                        placeholder={activeTab === 'items' ? "Search menu items..." : "Search categories..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm transition-all"
+                    />
+                </div>
+
+                {activeTab === 'items' && (
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+                            <Filter className="w-4 h-4 text-gray-400 shrink-0" />
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                            >
+                                <option value="All">All Categories</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <select
+                            value={stockFilter}
+                            onChange={(e) => setStockFilter(e.target.value)}
+                            className="w-full sm:w-36 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white flex-1 sm:flex-initial"
+                        >
+                            <option value="All">All Stock</option>
+                            <option value="in_stock">In Stock</option>
+                            <option value="out_of_stock">Out of Stock</option>
+                        </select>
+                    </div>
+                )}
+            </div>
+
             <div className="mb-6 flex gap-2 border-b border-gray-200 pb-px">
                 <button 
                     onClick={() => setActiveTab('items')}
                     className={`px-4 py-2 font-medium text-sm transition-colors relative ${activeTab === 'items' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Menu Items ({menuItems.length})
+                    Menu Items ({filteredMenuItems.length})
                     {activeTab === 'items' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                 </button>
                 <button 
                     onClick={() => setActiveTab('categories')}
                     className={`px-4 py-2 font-medium text-sm transition-colors relative ${activeTab === 'categories' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Categories ({categories.length})
+                    Categories ({filteredCategories.length})
                     {activeTab === 'categories' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                 </button>
             </div>
@@ -201,7 +337,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                         <>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Item Name</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Category</th>
-                                            <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Sale Price</th>
+                                            <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Sale Price / Sizes</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Cost Price</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Stock</th>
                                             <th className="py-4 px-6 font-semibold text-gray-600 text-sm">Status</th>
@@ -216,47 +352,69 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {activeTab === 'items' && menuItems.map(item => (
-                                    <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="py-4 px-6">
-                                            <div className="flex items-center gap-3">
-                                                {item.image ? (
-                                                    <img src={`/storage/${item.image}`} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                                                        <ImageIcon className="w-5 h-5" />
+                                {activeTab === 'items' && filteredMenuItems.map(item => {
+                                    const hasVars = item.variants && item.variants.length > 0;
+                                    const minPrice = hasVars ? Math.min(...item.variants.map(v => Number(v.price))) : Number(item.price);
+                                    const maxPrice = hasVars ? Math.max(...item.variants.map(v => Number(v.price))) : Number(item.price);
+
+                                    return (
+                                        <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    {item.image ? (
+                                                        <img src={`/storage/${item.image}`} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                                            <ImageIcon className="w-5 h-5" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">{item.name}</div>
+                                                        {hasVars && (
+                                                            <div className="text-xs text-purple-600 font-semibold flex items-center gap-1 mt-0.5">
+                                                                <Layers className="w-3 h-3" /> {item.variants.map(v => v.name).join(', ')}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <span className="font-medium text-gray-900">{item.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6 text-gray-500">{item.category?.name || 'Uncategorized'}</td>
-                                        <td className="py-4 px-6 font-bold text-primary">${Number(item.price).toFixed(2)}</td>
-                                        <td className="py-4 px-6 font-bold text-orange-600">${Number(item.cost_price || 0).toFixed(2)}</td>
-                                        <td className="py-4 px-6 font-medium text-gray-700">{item.stock_quantity}</td>
-                                        <td className="py-4 px-6">
-                                            {item.stock_quantity > 0 ? (
-                                                <Badge variant="success">Available</Badge>
-                                            ) : (
-                                                <Badge variant="danger">Out of Stock</Badge>
-                                            )}
-                                        </td>
-                                        {isOwner && (
-                                            <td className="py-4 px-6 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="outline" size="sm" className="p-2" onClick={() => openItemModal(item)}>
-                                                        <Edit2 className="w-4 h-4 text-gray-600" />
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" className="p-2 border-red-200 hover:bg-red-50" onClick={() => handleDeleteItem(item.id)}>
-                                                        <Trash2 className="w-4 h-4 text-red-500" />
-                                                    </Button>
                                                 </div>
                                             </td>
-                                        )}
-                                    </tr>
-                                ))}
+                                            <td className="py-4 px-6 text-gray-500">{item.category?.name || 'Uncategorized'}</td>
+                                            <td className="py-4 px-6 font-bold text-primary">
+                                                {hasVars ? (
+                                                    <div>
+                                                        <span>{currency}{minPrice.toFixed(2)} - {currency}{maxPrice.toFixed(2)}</span>
+                                                        <span className="block text-[10px] text-purple-600 font-medium">({item.variants.length} Sizes)</span>
+                                                    </div>
+                                                ) : (
+                                                    <span>{currency}{Number(item.price).toFixed(2)}</span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-6 font-bold text-orange-600">{currency}{Number(item.cost_price || 0).toFixed(2)}</td>
+                                            <td className="py-4 px-6 font-medium text-gray-700">{item.stock_quantity}</td>
+                                            <td className="py-4 px-6">
+                                                {item.stock_quantity > 0 ? (
+                                                    <Badge variant="success">Available</Badge>
+                                                ) : (
+                                                    <Badge variant="danger">Out of Stock</Badge>
+                                                )}
+                                            </td>
+                                            {isOwner && (
+                                                <td className="py-4 px-6 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="outline" size="sm" className="p-2" onClick={() => openItemModal(item)}>
+                                                            <Edit2 className="w-4 h-4 text-gray-600" />
+                                                        </Button>
+                                                        <Button variant="outline" size="sm" className="p-2 border-red-200 hover:bg-red-50" onClick={() => handleDeleteItem(item.id)}>
+                                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
                                 
-                                {activeTab === 'categories' && categories.map(cat => (
+                                {activeTab === 'categories' && filteredCategories.map(cat => (
                                     <tr key={cat.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="py-4 px-6 font-medium text-gray-900">{cat.name}</td>
                                         <td className="py-4 px-6 text-gray-500">{cat.description || '-'}</td>
@@ -270,11 +428,11 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                     </tr>
                                 ))}
 
-                                {(activeTab === 'items' && menuItems.length === 0) && (
-                                    <tr><td colSpan="7" className="py-12 text-center text-gray-500">No menu items found. Add one to get started.</td></tr>
+                                {(activeTab === 'items' && filteredMenuItems.length === 0) && (
+                                    <tr><td colSpan="7" className="py-12 text-center text-gray-500">No menu items found for this filter.</td></tr>
                                 )}
-                                {(activeTab === 'categories' && categories.length === 0) && (
-                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500">No categories found. Add one to get started.</td></tr>
+                                {(activeTab === 'categories' && filteredCategories.length === 0) && (
+                                    <tr><td colSpan="3" className="py-12 text-center text-gray-500">No categories found for this filter.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -284,9 +442,9 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
 
             {/* Menu Item Modal */}
             {isItemModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden my-8">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+                    <div className="bg-white rounded-2xl w-full max-w-xl sm:max-w-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
                             <h2 className="text-lg font-bold text-gray-900">
                                 {editingItemId ? 'Edit Menu Item' : 'Add Menu Item'}
                             </h2>
@@ -294,7 +452,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleItemSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleItemSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Item/Deal Name</label>
@@ -309,18 +467,6 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 </div>
 
                                 <div className="col-span-2">
-                                    <label className="flex items-center space-x-2 cursor-pointer bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                        <input
-                                            type="checkbox"
-                                            checked={data.is_deal}
-                                            onChange={e => setData('is_deal', e.target.checked)}
-                                            className="w-4 h-4 text-primary rounded focus:ring-primary"
-                                        />
-                                        <span className="text-sm font-medium text-blue-900">This is a Combo / Deal</span>
-                                    </label>
-                                </div>
-
-                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                                     <select
                                         value={data.category_id}
@@ -336,34 +482,142 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                     {errors.category_id && <p className="text-red-500 text-xs mt-1">{errors.category_id}</p>}
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ($)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={data.price}
-                                        onChange={e => setData('price', e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                        required
-                                    />
-                                    {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                                <div className="col-span-2 flex flex-col sm:flex-row gap-2">
+                                    <label className="flex-1 flex items-center space-x-2 cursor-pointer bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.is_deal}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setData(d => ({
+                                                    ...d,
+                                                    is_deal: checked,
+                                                    has_variants: checked ? false : d.has_variants
+                                                }));
+                                            }}
+                                            className="w-4 h-4 text-primary rounded focus:ring-primary"
+                                        />
+                                        <span className="text-sm font-medium text-blue-900">Combo / Deal</span>
+                                    </label>
+
+                                    {!data.is_deal && (
+                                        <label className="flex-1 flex items-center space-x-2 cursor-pointer bg-purple-50 p-3 rounded-xl border border-purple-100">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.has_variants}
+                                                onChange={e => {
+                                                    const checked = e.target.checked;
+                                                    setData(d => ({
+                                                        ...d,
+                                                        has_variants: checked,
+                                                        variants: checked && d.variants.length === 0 ? [
+                                                            { name: 'Small', price: d.price || '', cost_price: d.cost_price || '' },
+                                                            { name: 'Medium', price: '', cost_price: '' },
+                                                            { name: 'Large', price: '', cost_price: '' }
+                                                        ] : d.variants
+                                                    }));
+                                                }}
+                                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm font-medium text-purple-900">Multiple Sizes / Variants</span>
+                                        </label>
+                                    )}
                                 </div>
 
-                                {!data.is_deal && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ($)</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={data.cost_price}
-                                            onChange={e => setData('cost_price', e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
-                                            required={!data.is_deal}
-                                        />
-                                        {errors.cost_price && <p className="text-red-500 text-xs mt-1">{errors.cost_price}</p>}
+                                {/* Sizes / Variants Section */}
+                                {data.has_variants && !data.is_deal ? (
+                                    <div className="col-span-2 bg-purple-50/50 p-3.5 rounded-2xl border border-purple-100 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <label className="block text-sm font-bold text-purple-900">Configure Sizes / Variants</label>
+                                                <p className="text-xs text-purple-600">User defined size names (e.g. Small, Medium, Large, 1 Liter, Half, Full)</p>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={addVariant} 
+                                                className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 font-medium shadow-2xs"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Add Size
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {data.variants.map((variant, index) => (
+                                                <div key={index} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs min-w-0">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Size Name (e.g. Small)"
+                                                        value={variant.name}
+                                                        onChange={e => updateVariant(index, 'name', e.target.value)}
+                                                        className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        required
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder={`Price (${currency})`}
+                                                        value={variant.price}
+                                                        onChange={e => updateVariant(index, 'price', e.target.value)}
+                                                        className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                        required
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder={`Cost (${currency})`}
+                                                        value={variant.cost_price}
+                                                        onChange={e => updateVariant(index, 'cost_price', e.target.value)}
+                                                        className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                                    />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeVariant(index)} 
+                                                        className="p-1 text-red-500 hover:bg-red-50 rounded-md shrink-0"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {data.variants.length === 0 && (
+                                                <div className="text-center py-3 text-xs text-purple-600 bg-white border border-dashed border-purple-200 rounded-xl">
+                                                    No sizes defined. Click "+ Add Size" above.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price ({currency})</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={data.price}
+                                                onChange={e => setData('price', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                                required={!data.has_variants}
+                                            />
+                                            {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                                        </div>
+
+                                        {!data.is_deal && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ({currency})</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={data.cost_price}
+                                                    onChange={e => setData('cost_price', e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                                                />
+                                                {errors.cost_price && <p className="text-red-500 text-xs mt-1">{errors.cost_price}</p>}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 <div>
@@ -392,44 +646,124 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 {data.is_deal ? (
                                     <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
                                         <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">Deal Builder / Included Items</label>
-                                            <button type="button" onClick={addDealItem} className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded-md hover:bg-purple-100 flex items-center gap-1 font-medium">
-                                                <Plus className="w-3 h-3" /> Add Item
+                                            <label className="block text-sm font-bold text-gray-800">Deal Builder / Included Items</label>
+                                            <button type="button" onClick={() => addDealItem()} className="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-md hover:bg-purple-100 flex items-center gap-1 font-medium border border-purple-200">
+                                                <Plus className="w-3.5 h-3.5" /> Add Row
                                             </button>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-3">Select the menu items included in this deal. The system will automatically calculate the total cost price.</p>
+                                        <p className="text-xs text-gray-500 mb-3">Search or select items and choose specific sizes/variants included in this combo deal.</p>
                                         
-                                        <div className="space-y-2">
-                                            {data.dealItems.map((di, index) => (
-                                                <div key={index} className="flex gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                                    <select
-                                                        value={di.id}
-                                                        onChange={e => updateDealItem(index, 'id', e.target.value)}
-                                                        className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                                        required
-                                                    >
-                                                        <option value="">Select Menu Item</option>
-                                                        {menuItems.filter(m => !m.is_deal && m.id !== editingItemId).map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name} (${m.price})</option>
-                                                        ))}
-                                                    </select>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={di.quantity}
-                                                        onChange={e => updateDealItem(index, 'quantity', e.target.value)}
-                                                        className="w-24 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                                        placeholder="Qty"
-                                                        required
-                                                    />
-                                                    <button type="button" onClick={() => removeDealItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md">
-                                                        <X className="w-4 h-4" />
+                                        {/* Quick Search Bar for Deal Items */}
+                                        <div className="mb-3 relative">
+                                            <div className="relative">
+                                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                <input 
+                                                    type="text"
+                                                    placeholder="Search item to add to deal (e.g. Zinger, Pizza)..."
+                                                    value={dealSearchQuery}
+                                                    onChange={e => setDealSearchQuery(e.target.value)}
+                                                    className="w-full pl-9 pr-8 py-2 text-xs border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none bg-purple-50/30"
+                                                />
+                                                {dealSearchQuery && (
+                                                    <button type="button" onClick={() => setDealSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                                        <X className="w-3.5 h-3.5" />
                                                     </button>
+                                                )}
+                                            </div>
+
+                                            {/* Live Search Results Popup */}
+                                            {dealSearchQuery.trim() !== '' && (
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-purple-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto divide-y divide-gray-100">
+                                                    {menuItems
+                                                        .filter(m => !m.is_deal && m.id !== editingItemId && m.name.toLowerCase().includes(dealSearchQuery.toLowerCase()))
+                                                        .map(item => (
+                                                            <div 
+                                                                key={item.id} 
+                                                                onClick={() => {
+                                                                    const firstVarId = item.variants && item.variants.length > 0 ? item.variants[0].id : '';
+                                                                    addDealItem(item.id, firstVarId);
+                                                                    setDealSearchQuery('');
+                                                                }}
+                                                                className="p-2.5 hover:bg-purple-50 cursor-pointer flex items-center justify-between transition-colors"
+                                                            >
+                                                                <div>
+                                                                    <div className="text-xs font-bold text-gray-800">{item.name}</div>
+                                                                    {item.variants && item.variants.length > 0 && (
+                                                                        <div className="text-[10px] text-purple-600 font-semibold">
+                                                                            {item.variants.length} Sizes Available ({item.variants.map(v => v.name).join(', ')})
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-xs font-bold text-primary bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                                                                    +{currency}{item.price}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    {menuItems.filter(m => !m.is_deal && m.id !== editingItemId && m.name.toLowerCase().includes(dealSearchQuery.toLowerCase())).length === 0 && (
+                                                        <div className="p-3 text-xs text-gray-400 text-center">No items matching "{dealSearchQuery}"</div>
+                                                    )}
                                                 </div>
-                                            ))}
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2.5">
+                                            {data.dealItems.map((di, index) => {
+                                                const selectedItem = menuItems.find(m => String(m.id) === String(di.id));
+                                                const hasVariants = selectedItem?.variants && selectedItem.variants.length > 0;
+
+                                                return (
+                                                    <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                                                        <select
+                                                            value={di.id}
+                                                            onChange={e => updateDealItem(index, 'id', e.target.value)}
+                                                            className="flex-1 min-w-0 w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-white font-medium"
+                                                            required
+                                                        >
+                                                            <option value="">Select Menu Item</option>
+                                                            {menuItems.filter(m => !m.is_deal && m.id !== editingItemId).map(m => (
+                                                                <option key={m.id} value={m.id}>
+                                                                    {m.name} ({currency}{m.price}){m.variants && m.variants.length > 0 ? ' [Multi-Size]' : ''}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+
+                                                        {/* Variant Selector Dropdown if Item has Variants */}
+                                                        {hasVariants && (
+                                                            <select
+                                                                value={di.variant_id || ''}
+                                                                onChange={e => updateDealItem(index, 'variant_id', e.target.value)}
+                                                                className="w-full sm:w-36 px-2.5 py-1.5 text-xs border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-purple-50 text-purple-900 font-bold"
+                                                                required
+                                                            >
+                                                                <option value="">Select Size</option>
+                                                                {selectedItem.variants.map(v => (
+                                                                    <option key={v.id} value={v.id}>
+                                                                        {v.name} ({currency}{v.price})
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        )}
+
+                                                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={di.quantity}
+                                                                onChange={e => updateDealItem(index, 'quantity', e.target.value)}
+                                                                className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none bg-white text-center font-bold"
+                                                                placeholder="Qty"
+                                                                required
+                                                            />
+                                                            <button type="button" onClick={() => removeDealItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md shrink-0">
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                             {data.dealItems.length === 0 && (
-                                                <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-sm text-gray-500">
-                                                    No items added to deal.
+                                                <div className="text-center py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-xs text-gray-500">
+                                                    No items added to deal yet. Type above to search or click "+ Add Row".
                                                 </div>
                                             )}
                                         </div>
@@ -501,7 +835,7 @@ export default function Menu({ categories = [], menuItems = [], inventory = [] }
                                 </div>
                             </div>
 
-                            <div className="pt-4 flex gap-3">
+                            <div className="pt-4 flex gap-3 shrink-0">
                                 <Button type="button" variant="outline" className="flex-1" onClick={closeItemModal} disabled={itemForm.processing}>
                                     Cancel
                                 </Button>

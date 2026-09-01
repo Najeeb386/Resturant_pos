@@ -27,6 +27,88 @@ Route::get('/login', function () {
     return Inertia::render('Login');
 })->middleware('guest')->name('login');
 
+// Public Customer QR Table Digital Self-Ordering Routes
+Route::get('/table-order/{restaurant}/{table}', [\App\Http\Controllers\CustomerOrderController::class, 'showMenu'])->name('customer.qr.menu');
+Route::post('/table-order/checkout', [\App\Http\Controllers\CustomerOrderController::class, 'storeOrder'])->name('customer.qr.checkout');
+
+// Storage Fallback Route (fixes Hostinger 403 Forbidden symlink restriction)
+Route::get('/storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath) || is_dir($filePath)) {
+        abort(404);
+    }
+    return response()->file($filePath, [
+        'Access-Control-Allow-Origin' => '*',
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+})->where('path', '.*');
+
+// One-click Storage Permission & Symlink Fixer Route
+Route::get('/fix-storage', function () {
+    try {
+        $publicPath = storage_path('app/public');
+        if (!file_exists($publicPath)) {
+            @mkdir($publicPath, 0755, true);
+        }
+
+        // Create .htaccess inside storage/app/public
+        $htaccessPath = $publicPath . '/.htaccess';
+        $htaccessContent = "<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Allow from all\n</IfModule>\n";
+        @file_put_contents($htaccessPath, $htaccessContent);
+        @chmod($htaccessPath, 0644);
+
+        // Symlink re-creation if missing
+        $target = storage_path('app/public');
+        $shortcut = public_path('storage');
+        if (!file_exists($shortcut)) {
+            @symlink($target, $shortcut);
+        }
+
+        if (function_exists('shell_exec')) {
+            @shell_exec('chmod -R 755 ' . escapeshellarg($publicPath));
+            @shell_exec('find ' . escapeshellarg($publicPath) . ' -type f -exec chmod 644 {} +');
+        }
+
+        // Recursively fix directory and file permissions
+        $fixedCount = 0;
+        if (file_exists($publicPath)) {
+            try {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($publicPath, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::SELF_FIRST
+                );
+
+                foreach ($iterator as $item) {
+                    try {
+                        if ($item->isDir()) {
+                            @chmod($item->getPathname(), 0755);
+                        } else {
+                            @chmod($item->getPathname(), 0644);
+                        }
+                        $fixedCount++;
+                    } catch (\Throwable $err) {
+                        // Suppress individual permission failures
+                    }
+                }
+            } catch (\Throwable $err) {
+                // Suppress iterator failure
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Storage permissions updated cleanly on {$fixedCount} items!",
+            'htaccess_created' => file_exists($htaccessPath),
+            'symlink_exists' => file_exists($shortcut),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'warning',
+            'message' => $e->getMessage()
+        ], 200);
+    }
+});
+
 Route::post('/login', [App\Http\Controllers\API\AuthController::class, 'login'])->middleware('guest');
 
 Route::get('/register', function () {
@@ -97,13 +179,17 @@ Route::middleware('auth')->group(function () {
     Route::resource('staff', \App\Http\Controllers\StaffController::class)->except(['create', 'show', 'edit']);
 
     Route::get('/kitchen', [\App\Http\Controllers\KitchenController::class, 'index'])->name('kitchen.index');
+    Route::get('/kitchen/live-orders', [\App\Http\Controllers\KitchenController::class, 'liveOrders'])->name('kitchen.liveOrders');
     Route::post('/kitchen/{order}/status', [\App\Http\Controllers\KitchenController::class, 'updateStatus'])->name('kitchen.updateStatus');
+    Route::post('/kitchen/{order}/confirm-update', [\App\Http\Controllers\KitchenController::class, 'confirmUpdate'])->name('kitchen.confirmUpdate');
 
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::put('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
     Route::post('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.updatePaymentStatus');
     Route::post('/orders/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::get('/orders/{order}/receipt', [\App\Http\Controllers\OrderController::class, 'printReceipt'])->name('orders.printReceipt');
     Route::get('/orders/{order}/kot', [\App\Http\Controllers\OrderController::class, 'printKOT'])->name('orders.printKOT');
+    Route::get('/orders/{order}/both', [\App\Http\Controllers\OrderController::class, 'printBoth'])->name('orders.printBoth');
 
     // Menu Management
     Route::get('/menu', [\App\Http\Controllers\MenuController::class, 'index'])->name('menu.index');
@@ -112,6 +198,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/menu/item', [\App\Http\Controllers\MenuController::class, 'storeItem'])->name('menu.item.store');
     Route::post('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'updateItem'])->name('menu.item.update');
     Route::delete('/menu/item/{menuItem}', [\App\Http\Controllers\MenuController::class, 'destroyItem'])->name('menu.item.destroy');
+
+    // AI 3D Menu Studio
+    Route::get('/menu/3d-studio', [\App\Http\Controllers\ThreedStudioController::class, 'index'])->name('menu.3d-studio');
+    Route::post('/menu/3d-studio/generate', [\App\Http\Controllers\ThreedStudioController::class, 'generate3dModel'])->name('menu.3d-studio.generate');
+    Route::delete('/menu/3d-studio/{menuItem}', [\App\Http\Controllers\ThreedStudioController::class, 'destroy3dModel'])->name('menu.3d-studio.destroy');
 
     // Expenses
     Route::get('/expenses', [\App\Http\Controllers\ExpenseController::class, 'index']);
@@ -191,9 +282,25 @@ Route::middleware('auth')->group(function () {
         
         Route::get('/restaurants', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'index']);
         Route::post('/restaurants', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'store']);
+        Route::put('/restaurants/{restaurant}', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'update']);
+        Route::delete('/restaurants/{restaurant}', [\App\Http\Controllers\SuperAdmin\RestaurantController::class, 'destroy']);
+
+        Route::get('/subscriptions', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
+        Route::post('/subscriptions/{subscription}/renew', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'renew'])->name('admin.subscriptions.renew');
+        Route::post('/subscriptions/{subscription}/extend', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'extend'])->name('admin.subscriptions.extend');
+        Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\SuperAdmin\SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
         
         Route::get('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'index']);
         Route::post('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'store']);
+        Route::put('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'update']);
+        Route::delete('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'destroy']);
+
+        Route::get('/expenses', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'index'])->name('admin.expenses.index');
+        Route::post('/expenses', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'store']);
+        Route::put('/expenses/{expense}', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'update']);
+        Route::delete('/expenses/{expense}', [\App\Http\Controllers\SuperAdmin\ExpenseController::class, 'destroy']);
+
+        Route::get('/reports', [\App\Http\Controllers\SuperAdmin\ReportController::class, 'index'])->name('admin.reports.index');
 
         // Super Admin Settings
         Route::get('/settings', function () {
@@ -246,10 +353,65 @@ Route::middleware('auth')->group(function () {
 
             return back()->with('success', 'Currency settings saved');
         });
+
+        Route::post('/settings/smtp', function (\Illuminate\Http\Request $request) {
+            $request->validate([
+                'mail_host' => 'required|string',
+                'mail_port' => 'required|integer',
+                'mail_username' => 'required|string',
+                'mail_password' => 'nullable|string',
+                'mail_encryption' => 'nullable|string',
+                'mail_from_address' => 'required|email',
+                'mail_from_name' => 'required|string',
+            ]);
+
+            \DB::table('platform_settings')->updateOrInsert(
+                ['id' => 1],
+                [
+                    'mail_mailer' => 'smtp',
+                    'mail_host' => trim($request->mail_host),
+                    'mail_port' => (int)$request->mail_port,
+                    'mail_username' => trim($request->mail_username),
+                    'mail_password' => $request->mail_password ?? '',
+                    'mail_encryption' => trim($request->mail_encryption ?? 'tls'),
+                    'mail_from_address' => trim($request->mail_from_address),
+                    'mail_from_name' => trim($request->mail_from_name),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+
+            return back()->with('success', 'SMTP Mail Server settings saved successfully!');
+        });
+
+        Route::post('/settings/test-smtp', function (\Illuminate\Http\Request $request) {
+            $request->validate(['test_email' => 'required|email']);
+            
+            \App\Helpers\MailConfigHelper::applySettings();
+
+            try {
+                \Illuminate\Support\Facades\Mail::raw('Hello! This is a test email sent from DineDesk POS SaaS Admin Portal to verify your SMTP server configuration.', function ($message) use ($request) {
+                    $message->to($request->test_email)
+                            ->subject('DineDesk POS - SMTP Test Email');
+                });
+
+                return back()->with('success', 'Test email sent successfully to ' . $request->test_email);
+            } catch (\Throwable $e) {
+                return back()->with('error', 'SMTP Test Failed: ' . $e->getMessage());
+            }
+        });
     });
 
-    Route::post('/logout', function () {
+    Route::post('/logout', function (\Illuminate\Http\Request $request) {
         auth()->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
         return redirect('/login');
     });
 });
+
+// Forgot Password & OTP Routes (Public Guest)
+Route::post('/forgot-password/send-otp', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendOtp']);
+Route::post('/forgot-password/verify-otp', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'verifyOtp']);
+Route::post('/forgot-password/reset-password', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'resetPassword']);
+

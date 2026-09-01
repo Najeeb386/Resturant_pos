@@ -5,17 +5,15 @@ import { ArrowRight, CheckCircle2, Store, Utensils, BarChart3, Zap } from 'lucid
 export default function Landing({ plans = [], currencySymbol = '$' }) {
     return (
         <div className="min-h-screen bg-gray-50 font-sans selection:bg-primary/20 selection:text-primary">
-            <Head title="Restaurant POS SaaS - Modern Management System" />
+            <Head title="DineDesk - Modern Restaurant Management Platform" />
 
             {/* Navigation */}
             <nav className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-20 items-center">
-                        <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-orange-400 flex items-center justify-center text-white shadow-lg shadow-primary/30">
-                                <Store className="w-6 h-6" />
-                            </div>
-                            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">RestoPOS</span>
+                        <div className="flex items-center gap-3">
+                            <img src="/images/logo.png" alt="DineDesk Logo" className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-orange-500/20" />
+                            <span className="text-2xl font-extrabold bg-gradient-to-r from-gray-900 via-orange-900 to-gray-700 bg-clip-text text-transparent tracking-tight">DineDesk</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <Link href="/login" className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors">
@@ -59,7 +57,7 @@ export default function Landing({ plans = [], currencySymbol = '$' }) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">Powerful tools for modern restaurants</h2>
-                        <p className="text-gray-500 text-lg">Stop juggling multiple outdated systems. RestoPOS gives you a single, elegant platform to manage every aspect of your business.</p>
+                        <p className="text-gray-500 text-lg">Stop juggling multiple outdated systems. DineDesk gives you a single, elegant platform to manage every aspect of your business.</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -151,13 +149,11 @@ export default function Landing({ plans = [], currencySymbol = '$' }) {
             {/* Footer */}
             <footer className="bg-white border-t border-gray-100 py-12">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-white">
-                            <Store className="w-4 h-4" />
-                        </div>
-                        <span className="text-lg font-bold text-gray-900">RestoPOS</span>
+                    <div className="flex items-center gap-3">
+                        <img src="/images/logo.png" alt="DineDesk Logo" className="w-8 h-8 rounded-lg object-contain" />
+                        <span className="text-lg font-bold text-gray-900">DineDesk</span>
                     </div>
-                    <p className="text-gray-500 text-sm">© {new Date().getFullYear()} RestoPOS Inc. All rights reserved.</p>
+                    <p className="text-gray-500 text-sm">© {new Date().getFullYear()} DineDesk Inc. All rights reserved.</p>
                     <div className="flex gap-4">
                         <Link href="/admin/login" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Admin Portal</Link>
                     </div>

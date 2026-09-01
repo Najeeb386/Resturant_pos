@@ -3,12 +3,15 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Badge } from '../../Components/ui/Badge';
 import { Button } from '../../Components/ui/Button';
-import { Plus, Trash2, X, Loader2, Edit2, UserCircle } from 'lucide-react';
+import { Plus, Trash2, X, Loader2, Edit2, UserCircle, Search, Filter } from 'lucide-react';
 import { useForm, usePage } from '@inertiajs/react';
+import { SwalConfirm, SwalToast } from '../../Utils/swal';
 
 export default function StaffIndex({ staff = [], roles = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedRole, setSelectedRole] = useState('All');
     const { auth, flash } = usePage().props;
 
     const { data, setData, post, put, delete: destroy, reset, errors, clearErrors, processing } = useForm({
@@ -46,29 +49,55 @@ export default function StaffIndex({ staff = [], roles = [] }) {
         e.preventDefault();
         if (editingId) {
             put(`/staff/${editingId}`, {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Staff member updated');
+                },
             });
         } else {
             post('/staff', {
-                onSuccess: () => closeModal(),
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Staff member added');
+                },
             });
         }
     };
 
     const handleDelete = (id) => {
-        if (confirm('Are you sure you want to remove this staff member?')) {
-            destroy(`/staff/${id}`);
-        }
+        SwalConfirm({
+            title: 'Remove Staff Member?',
+            text: 'Are you sure you want to remove this staff member?',
+            confirmButtonText: 'Yes, remove staff',
+            confirmButtonColor: '#ef4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                destroy(`/staff/${id}`, {
+                    onSuccess: () => SwalToast('Staff member removed')
+                });
+            }
+        });
     };
+
+    // Filter staff members in real-time
+    const filteredStaff = staff.filter(user => {
+        const roleMatch = selectedRole === 'All' || user.role_id == selectedRole || user.role?.name === selectedRole;
+        const searchMatch = searchQuery === '' ||
+            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (user.role?.name && user.role.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        return roleMatch && searchMatch;
+    });
 
     return (
         <AdminLayout>
-            <div className="mb-6 flex justify-between items-end">
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Staff Management</h1>
                     <p className="text-gray-500">Manage accounts for your cashiers, wait staff, and kitchen team.</p>
                 </div>
-                <Button onClick={() => openModal()} className="flex items-center gap-2">
+                <Button onClick={() => openModal()} className="flex items-center gap-2 font-semibold shadow-sm">
                     <Plus className="w-4 h-4" /> Add Staff
                 </Button>
             </div>
@@ -78,6 +107,34 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                     {flash.message}
                 </div>
             )}
+
+            {/* Real-time Search and Role Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-xs border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:w-80">
+                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        type="text"
+                        placeholder="Search staff by name or email..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm transition-all"
+                    />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Filter className="w-4 h-4 text-gray-400 shrink-0" />
+                    <select
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="w-full sm:w-48 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                    >
+                        <option value="All">All Roles</option>
+                        {roles.map(role => (
+                            <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             <Card>
                 <CardContent className="p-0">
@@ -92,11 +149,11 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {staff.map(user => (
+                                {filteredStaff.map(user => (
                                     <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                                     <UserCircle className="w-6 h-6" />
                                                 </div>
                                                 <span className="font-medium text-gray-900">{user.name}</span>
@@ -125,10 +182,10 @@ export default function StaffIndex({ staff = [], roles = [] }) {
                                         </td>
                                     </tr>
                                 ))}
-                                {staff.length === 0 && (
+                                {filteredStaff.length === 0 && (
                                     <tr>
                                         <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                                            No staff members found.
+                                            No staff members found matching your search.
                                         </td>
                                     </tr>
                                 )}
@@ -140,7 +197,7 @@ export default function StaffIndex({ staff = [], roles = [] }) {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h2 className="text-lg font-bold text-gray-900">

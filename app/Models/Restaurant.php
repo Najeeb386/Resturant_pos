@@ -8,7 +8,7 @@ class Restaurant extends Model
 {
     protected $fillable = [
         'name', 'address', 'phone', 'email', 'gst_number', 'currency', 
-        'currency_symbol', 'tax_percentage', 'logo', 'receipt_header', 'receipt_footer', 'kitchen_bypass'
+        'currency_symbol', 'tax_percentage', 'primary_color', 'logo', 'receipt_header', 'receipt_footer', 'kitchen_bypass', 'payment_methods'
     ];
 
     public function users()
@@ -44,5 +44,19 @@ class Restaurant extends Model
     public function subscription()
     {
         return $this->hasOne(Subscription::class);
+    }
+
+    public function hasFeature(string $feature): bool
+    {
+        $subscription = $this->subscription()->with('plan')->first();
+        if (!$subscription) {
+            return true; // Default fallback if no subscription record
+        }
+        if ($subscription->status !== 'active') {
+            return false;
+        }
+        
+        $plan = $subscription->plan;
+        return $plan ? $plan->hasFeature($feature) : false;
     }
 }

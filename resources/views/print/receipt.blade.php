@@ -1,3 +1,34 @@
+@php
+if (!function_exists('getBarcodeSVG')) {
+    function getBarcodeSVG($code, $height = 36, $width = 2) {
+        $patterns = [
+            '0' => '101001101101', '1' => '110100101011', '2' => '101100101011', '3' => '110110010101',
+            '4' => '101001101011', '5' => '110100110101', '6' => '101100110101', '7' => '101001011011',
+            '8' => '110100101101', '9' => '101100101101', '*' => '100101101101'
+        ];
+        $codeStr = '*' . strtoupper((string)$code) . '*';
+        $binary = '';
+        for ($i = 0; $i < strlen($codeStr); $i++) {
+            $c = $codeStr[$i];
+            if (isset($patterns[$c])) {
+                $binary .= $patterns[$c] . '0';
+            }
+        }
+        $svgWidth = strlen($binary) * $width;
+        $svg = "<svg width=\"{$svgWidth}\" height=\"{$height}\" viewBox=\"0 0 {$svgWidth} {$height}\" xmlns=\"http://www.w3.org/2000/svg\" style=\"margin: 0 auto; display: block;\">\n";
+        $svg .= "  <rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n";
+        $x = 0;
+        for ($i = 0; $i < strlen($binary); $i++) {
+            if ($binary[$i] === '1') {
+                $svg .= "  <rect x=\"{$x}\" y=\"0\" width=\"{$width}\" height=\"{$height}\" fill=\"black\"/>\n";
+            }
+            $x += $width;
+        }
+        $svg .= "</svg>";
+        return $svg;
+    }
+}
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -56,27 +87,38 @@
 </head>
 <body onload="window.print();">
     <div class="container">
-        <!-- Header -->
+        <!-- Header: Show Logo if uploaded (removing text name), otherwise text name -->
         <div class="header text-center mb-2">
-            <h1>{{ $restaurant->name }}</h1>
+            @if($restaurant->logo)
+                <img src="{{ asset('storage/' . $restaurant->logo) }}" alt="{{ $restaurant->name }}" style="max-width: 180px; max-height: 75px; object-fit: contain; margin: 0 auto 6px auto; display: block;" />
+            @else
+                <h1>{{ $restaurant->name }}</h1>
+            @endif
             <p>{{ $restaurant->address }}</p>
             @if($restaurant->phone) <p>PHONE : {{ $restaurant->phone }}</p> @endif
             @if($restaurant->gst_number) <p>GSTIN : {{ $restaurant->gst_number }}</p> @endif
         </div>
 
-        <div class="text-center title">Retail Invoice</div>
+        <div class="text-center title">RETAIL INVOICE</div>
 
-        <!-- Order Details -->
+        <!-- Order Details with Bold Bill Number -->
         <div class="details mb-2">
             <p>Date : {{ $order->created_at->format('d/m/Y, h:i A') }}</p>
-            @if($order->customer_name)
-                <p class="font-bold mt-2">{{ $order->customer_name }}</p>
-            @endif
-            <p>Bill No: {{ $order->id }}</p>
-            <p>Type: {{ ucfirst($order->order_type) }}</p>
+            <p class="font-bold" style="font-size: 13px; text-transform: uppercase;">Bill No: #{{ $order->id }}</p>
+            <p>Type: {{ ucfirst(str_replace('_', ' ', $order->order_type)) }}</p>
+            <p class="font-bold">Payment Method: {{ str_replace('Payment via ', '', $order->notes ?? 'Cash') }}</p>
             <p>Payment Status: {{ ucfirst($order->payment_status) }}</p>
+            @if($order->customer_name)
+                <p class="font-bold mt-1">Customer: {{ $order->customer_name }}</p>
+            @endif
+            @if($order->customer_phone)
+                <p class="font-bold">Phone: {{ $order->customer_phone }}</p>
+            @endif
+            @if($order->delivery_address)
+                <p class="font-bold" style="margin-top: 4px; border: 1px dashed #000; padding: 4px;">Delivery Address:<br>{{ $order->delivery_address }}</p>
+            @endif
             @if($order->table)
-                <p>Table: {{ $order->table->name }}</p>
+                <p>Table: {{ $order->table->name ?? $order->table->table_number }}</p>
             @endif
         </div>
 
@@ -129,11 +171,20 @@
             </table>
         </div>
 
+        <!-- Barcode of Invoice/Order Number above Footer -->
+        <div class="text-center mt-2 mb-2" style="margin-top: 15px; margin-bottom: 8px;">
+            {!! getBarcodeSVG($order->id) !!}
+            <p style="font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 1px;">#{{ sprintf('%06d', $order->id) }}</p>
+        </div>
+
         <div class="header text-center mt-2">
             <p>*** THANK YOU ***</p>
             @if($restaurant->receipt_footer)
                 <p>{{ $restaurant->receipt_footer }}</p>
             @endif
+            <p style="font-size: 10px; font-weight: bold; margin-top: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: #444;">
+                Powered by {{ config('app.name', 'DineDesk') }}
+            </p>
         </div>
     </div>
 </body>

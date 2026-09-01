@@ -17,7 +17,7 @@ class UserSeeder extends Seeder
         \DB::table('users')->insert([
             [
                 'name' => 'Super Admin',
-                'email' => 'admin@tastystation.com',
+                'email' => 'admin@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 1, // Super Admin
                 'restaurant_id' => null, // Super admin can access all
@@ -27,7 +27,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Restaurant Owner',
-                'email' => 'owner@tastystation.com',
+                'email' => 'owner@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 2, // Restaurant Owner
                 'restaurant_id' => $restaurantId,
@@ -37,7 +37,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Cashier User',
-                'email' => 'cashier@tastystation.com',
+                'email' => 'cashier@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 3, // Cashier
                 'restaurant_id' => $restaurantId,
@@ -47,7 +47,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Waiter User',
-                'email' => 'waiter@tastystation.com',
+                'email' => 'waiter@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 4, // Waiter
                 'restaurant_id' => $restaurantId,
@@ -57,7 +57,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Kitchen Staff',
-                'email' => 'kitchen@tastystation.com',
+                'email' => 'kitchen@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 5, // Kitchen Staff
                 'restaurant_id' => $restaurantId,
@@ -67,7 +67,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Delivery Rider',
-                'email' => 'rider@tastystation.com',
+                'email' => 'rider@dinedesk.com',
                 'password' => \Hash::make('password'),
                 'role_id' => 6, // Delivery Rider
                 'restaurant_id' => $restaurantId,

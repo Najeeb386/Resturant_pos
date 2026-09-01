@@ -11,10 +11,11 @@ class Order extends Model
     protected $fillable = [
         'restaurant_id', 'table_id', 'user_id', 'order_type', 'customer_name', 
         'customer_phone', 'delivery_address', 'delivery_fee', 'payment_status',
-        'status', 'subtotal', 'tax', 'discount', 'total', 'notes'
+        'status', 'is_updated', 'subtotal', 'tax', 'discount', 'total', 'notes'
     ];
 
     protected $casts = [
+        'is_updated' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'discount' => 'decimal:2',

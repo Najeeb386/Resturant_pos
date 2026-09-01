@@ -3,6 +3,7 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../Components/ui/Card';
 import { useForm } from '@inertiajs/react';
 import { Plus, Edit2, Trash2, Package, AlertTriangle, ArrowDownToLine } from 'lucide-react';
+import { SwalConfirm, SwalToast } from '../../Utils/swal';
 
 export default function InventoryIndex({ inventory, currencySymbol }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,11 +70,17 @@ export default function InventoryIndex({ inventory, currencySymbol }) {
         e.preventDefault();
         if (editingId) {
             form.put(`/inventory/${editingId}`, {
-                onSuccess: () => closeModal()
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Ingredient updated');
+                }
             });
         } else {
             form.post('/inventory', {
-                onSuccess: () => closeModal()
+                onSuccess: () => {
+                    closeModal();
+                    SwalToast('Ingredient added');
+                }
             });
         }
     };
@@ -81,14 +88,26 @@ export default function InventoryIndex({ inventory, currencySymbol }) {
     const handleRestockSubmit = (e) => {
         e.preventDefault();
         restockForm.post(`/inventory/${restockingItem.id}/restock`, {
-            onSuccess: () => closeRestockModal()
+            onSuccess: () => {
+                closeRestockModal();
+                SwalToast('Ingredient restocked');
+            }
         });
     };
 
     const handleDelete = (id) => {
-        if (confirm('Are you sure you want to delete this ingredient?')) {
-            form.delete(`/inventory/${id}`);
-        }
+        SwalConfirm({
+            title: 'Delete Ingredient?',
+            text: 'Are you sure you want to delete this ingredient?',
+            confirmButtonText: 'Yes, delete ingredient',
+            confirmButtonColor: '#ef4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.delete(`/inventory/${id}`, {
+                    onSuccess: () => SwalToast('Ingredient deleted')
+                });
+            }
+        });
     };
 
     const units = ['kg', 'grams', 'ltr', 'ml', 'pcs', 'dozen', 'box'];

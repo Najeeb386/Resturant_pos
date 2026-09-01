@@ -10,10 +10,20 @@ class TableController extends Controller
 {
     public function index()
     {
-        $restaurantId = auth()->user()->restaurant_id;
-        $tables = Table::where('restaurant_id', $restaurantId)->get();
+        $user = auth()->user();
+        $restaurant = $user->restaurant;
+        $tables = Table::where('restaurant_id', $user->restaurant_id)->get();
+        $hasQrOrdering = $restaurant ? $restaurant->hasFeature('qr_ordering') : true;
+
         return Inertia::render('Tables', [
-            'tables' => $tables
+            'tables' => $tables,
+            'hasQrOrdering' => $hasQrOrdering,
+            'restaurant' => $restaurant ? [
+                'id' => $restaurant->id,
+                'name' => $restaurant->name,
+                'logo' => $restaurant->logo,
+                'currency_symbol' => $restaurant->currency_symbol ?? '$',
+            ] : null,
         ]);
     }
 

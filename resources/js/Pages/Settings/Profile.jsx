@@ -1,13 +1,15 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import AdminLayout from '../../Layouts/AdminLayout';
 import { Card, CardContent } from '../../Components/ui/Card';
 import { Button } from '../../Components/ui/Button';
 import { useForm, usePage } from '@inertiajs/react';
-import { Save, Upload, Loader2 } from 'lucide-react';
+import { Save, Upload, Loader2, Plus, X, CreditCard, Banknote, Palette } from 'lucide-react';
 
 export default function Profile({ restaurant }) {
     const fileInputRef = useRef(null);
     const { flash } = usePage().props;
+    const [newMethodName, setNewMethodName] = useState('');
+
     const { data, setData, post, processing, errors, progress } = useForm({
         name: restaurant.name || '',
         phone: restaurant.phone || '',
@@ -17,19 +19,46 @@ export default function Profile({ restaurant }) {
         currency: restaurant.currency || 'USD',
         currency_symbol: restaurant.currency_symbol || '$',
         tax_percentage: restaurant.tax_percentage || 10,
+        primary_color: restaurant.primary_color || '#f97316',
         receipt_header: restaurant.receipt_header || '',
         receipt_footer: restaurant.receipt_footer || '',
         kitchen_bypass: Boolean(restaurant.kitchen_bypass),
+        payment_methods: restaurant.payment_methods || 'Cash,Card',
         logo: null,
-        _method: 'post', // Since we use POST route for handling files easily in Laravel
+        _method: 'post',
     });
+
+    const methodsList = data.payment_methods 
+        ? data.payment_methods.split(',').map(m => m.trim()).filter(Boolean)
+        : ['Cash', 'Card'];
+
+    const handleAddPaymentMethod = (e) => {
+        e.preventDefault();
+        if (!newMethodName.trim()) return;
+        const trimmed = newMethodName.trim();
+        if (methodsList.includes(trimmed)) {
+            setNewMethodName('');
+            return;
+        }
+        const updated = [...methodsList, trimmed].join(',');
+        setData('payment_methods', updated);
+        setNewMethodName('');
+    };
+
+    const handleRemovePaymentMethod = (methodToRemove) => {
+        if (methodsList.length <= 1) {
+            alert("At least one payment method is required.");
+            return;
+        }
+        const updated = methodsList.filter(m => m !== methodToRemove).join(',');
+        setData('payment_methods', updated);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         post('/settings/profile', {
             preserveScroll: true,
             onSuccess: () => {
-                // optionally reset file input
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
@@ -43,7 +72,7 @@ export default function Profile({ restaurant }) {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">Restaurant Profile</h1>
-                    <p className="text-gray-500">Manage your restaurant details, branding, and receipt settings.</p>
+                    <p className="text-gray-500">Manage your restaurant details, branding, payment methods, and receipt settings.</p>
                 </div>
 
                 {flash?.message && (
@@ -187,6 +216,120 @@ export default function Profile({ restaurant }) {
                                         />
                                         {errors.tax_percentage && <p className="text-red-500 text-xs mt-1">{errors.tax_percentage}</p>}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* QR Digital Menu Branding & Color Theme */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                                    <Palette className="w-5 h-5 text-primary" />
+                                    QR Digital Menu Theme Color
+                                </h3>
+                                <p className="text-xs text-gray-500 mb-4">Choose a primary brand color theme for your table QR ordering web page.</p>
+
+                                <div className="space-y-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {[
+                                            { name: 'Sunset Orange', hex: '#f97316' },
+                                            { name: 'Crimson Red', hex: '#dc2626' },
+                                            { name: 'Emerald Green', hex: '#059669' },
+                                            { name: 'Royal Blue', hex: '#2563eb' },
+                                            { name: 'Deep Purple', hex: '#7c3aed' },
+                                            { name: 'Rose Pink', hex: '#db2777' },
+                                            { name: 'Charcoal Dark', hex: '#0f172a' },
+                                        ].map((preset) => (
+                                            <button
+                                                key={preset.hex}
+                                                type="button"
+                                                onClick={() => setData('primary_color', preset.hex)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                                    data.primary_color?.toLowerCase() === preset.hex.toLowerCase()
+                                                        ? 'bg-white border-gray-900 shadow-sm ring-2 ring-gray-900/20 scale-105'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <span className="w-4 h-4 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: preset.hex }}></span>
+                                                {preset.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-3 pt-2">
+                                        <label className="text-xs font-medium text-gray-700">Custom Color Picker:</label>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="color" 
+                                                value={data.primary_color || '#f97316'}
+                                                onChange={e => setData('primary_color', e.target.value)}
+                                                className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
+                                            />
+                                            <input 
+                                                type="text"
+                                                value={data.primary_color || '#f97316'}
+                                                onChange={e => setData('primary_color', e.target.value)}
+                                                placeholder="#f97316"
+                                                className="w-28 px-3 py-1.5 text-xs font-mono border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Payment Methods Section */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                            <CreditCard className="w-5 h-5 text-primary" />
+                                            Payment Methods (POS Terminal)
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mt-1">Configure available payment options for cashiers on the POS checkout screen.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex flex-wrap gap-2">
+                                        {methodsList.map((method) => (
+                                            <span 
+                                                key={method} 
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 shadow-xs group"
+                                            >
+                                                {method}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemovePaymentMethod(method)}
+                                                    className="p-0.5 rounded-full hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
+                                                    title="Remove method"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-2 items-center">
+                                        <input
+                                            type="text"
+                                            value={newMethodName}
+                                            onChange={(e) => setNewMethodName(e.target.value)}
+                                            placeholder="Add payment method (e.g. EasyPaisa, JazzCash, Online)"
+                                            className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleAddPaymentMethod(e);
+                                                }
+                                            }}
+                                        />
+                                        <Button 
+                                            type="button" 
+                                            onClick={handleAddPaymentMethod} 
+                                            className="px-4 py-2 text-sm font-semibold flex items-center gap-1 bg-primary text-white"
+                                        >
+                                            <Plus className="w-4 h-4" /> Add Method
+                                        </Button>
+                                    </div>
+                                    {errors.payment_methods && <p className="text-red-500 text-xs">{errors.payment_methods}</p>}
                                 </div>
                             </div>
 
